@@ -1,0 +1,16 @@
+# Dependencies & build output
+node_modules
+.next
+out
+dist
+*.tsbuildinfo
+
+# Vercel
+.vercel
+
+# Env / secrets
+.env
+.env*.local
+
+# OS junk
+.DS_Store
