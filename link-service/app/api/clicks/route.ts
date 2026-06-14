@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRecentClicks } from "@/lib/clicks";
 
 // Read feed of recent clicks.
-//   GET /api/clicks            -> all recent clicks (newest first)
-//   GET /api/clicks?slug=alice -> just alice's
+//   GET /api/clicks                  -> all recent clicks (newest first)
+//   GET /api/clicks?campaign=launch  -> just one campaign's
+//   GET /api/clicks?miner=alice      -> just one miner's
 //
 // Stub note: this reads the in-memory buffer, so it only shows clicks served by
 // the same running instance (great locally; partial in serverless). The durable
@@ -13,7 +14,8 @@ import { getRecentClicks } from "@/lib/clicks";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const slug = req.nextUrl.searchParams.get("slug") || undefined;
-  const clicks = getRecentClicks(slug);
+  const campaign = req.nextUrl.searchParams.get("campaign") || undefined;
+  const miner = req.nextUrl.searchParams.get("miner") || undefined;
+  const clicks = getRecentClicks({ campaign, miner });
   return NextResponse.json({ count: clicks.length, clicks });
 }

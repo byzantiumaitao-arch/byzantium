@@ -19,7 +19,8 @@
 // of this repo.
 
 export type Click = {
-  link_slug: string;
+  campaign: string;
+  miner: string;
   ts: string; // ISO 8601
   ip: string | null;
   ua: string | null;
@@ -45,8 +46,13 @@ export async function logClick(click: Click): Promise<void> {
   if (recent.length > RECENT_LIMIT) recent.shift();
 }
 
-export function getRecentClicks(slug?: string): Click[] {
-  const list = slug ? recent.filter((c) => c.link_slug === slug) : recent;
+export function getRecentClicks(filter?: {
+  campaign?: string;
+  miner?: string;
+}): Click[] {
+  let list = recent;
+  if (filter?.campaign) list = list.filter((c) => c.campaign === filter.campaign);
+  if (filter?.miner) list = list.filter((c) => c.miner === filter.miner);
   // Newest first.
   return [...list].reverse();
 }

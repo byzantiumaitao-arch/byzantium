@@ -1,25 +1,38 @@
-# Byzantium link service (M1)
+# Byzantium link service
 
 The redirect + click-logging service behind **`link.byzantiumai.net`**.
 
 ```
-link.byzantiumai.net/alice
-  → log the click (append-only)
-  → 302 → taostats.io   (buy ن)
+link.byzantiumai.net/<miner>/<campaign>
+  → look up the campaign's destination
+  → log the click (append-only), attributed to (miner, campaign)
+  → 302 → the campaign's target site
+
+e.g.  link.byzantiumai.net/alice/launch  → https://byzantiumai.net
+      link.byzantiumai.net/alice/buy     → https://taostats.io
 ```
 
-This is the first milestone: a pure redirect that records every click. The
-device-fingerprint interstitial and the real Postgres click table slot in later
-without changing the public behaviour.
+Each **campaign** has its own destination URL; each click records which campaign
+(what's being marketed) and which miner (who to reward). The device-fingerprint
+interstitial and the real Postgres click table slot in later without changing
+this behaviour.
 
 ## What's here
 
 | Path | What it does |
 |---|---|
-| `app/[slug]/route.ts` | The redirect. Logs the click, 302s to the destination. |
-| `app/api/clicks/route.ts` | Read feed of recent clicks (`?slug=alice` to filter). |
+| `app/[miner]/[campaign]/route.ts` | The redirect. Logs the click, 302s to the campaign's destination. |
+| `app/[miner]/route.ts` | Single-segment (no campaign) → marketing site; not a valid tracking link. |
+| `app/api/clicks/route.ts` | Read feed of recent clicks (`?campaign=` / `?miner=` to filter). |
+| `lib/campaigns.ts` | **Campaign registry — campaign → destination.** Currently a stub map; becomes a DB lookup later. |
 | `lib/clicks.ts` | **Storage layer — the only file that changes for a real DB.** Currently stubbed (logs + in-memory). |
-| `lib/config.ts` | Destination URL, marketing URL, reserved paths. |
+| `lib/config.ts` | Service-wide settings (marketing URL). |
+
+## Campaigns
+
+Add or edit campaigns in `lib/campaigns.ts` — each has a `slug`, `name`,
+`destination`, and `active` flag. Later this moves to the database / an admin UI
+so brands can launch campaigns without a code change.
 
 ## Storage: stubbed for now
 
@@ -41,16 +54,16 @@ npm run dev          # http://localhost:3000
 
 Test it:
 ```bash
-curl -sI localhost:3000/alice            # → 302 Location: https://taostats.io
-curl -s  localhost:3000/api/clicks | jq  # → the click you just made
+curl -sI localhost:3000/alice/launch          # → 302 Location: https://byzantiumai.net
+curl -sI localhost:3000/alice/buy             # → 302 Location: https://taostats.io
+curl -s  localhost:3000/api/clicks | jq       # → the clicks you just made
 ```
 
 ## Configuration (Vercel env vars, all optional)
 
 | Var | Default | Meaning |
 |---|---|---|
-| `LINK_DESTINATION` | `https://taostats.io` | Where every link redirects. |
-| `MARKETING_URL` | `https://byzantiumai.net` | Where bare-root / non-slug hits go. |
+| `MARKETING_URL` | `https://byzantiumai.net` | Where bare-root / unknown-campaign hits go. |
 
 ## Deploy
 
