@@ -1,4 +1,5 @@
 import { getOverview } from "@/lib/stats";
+import { getSession } from "@/lib/auth";
 import { Nav } from "../nav";
 
 // Public overall dashboard — campaign-level activity. No per-click detail and no
@@ -8,10 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function OverviewPage() {
   const o = await getOverview();
+  const session = getSession();
 
   return (
     <main className="wrap">
-      <Nav active="overview" />
+      <Nav active="overview" session={session} />
 
       <h1>Campaign overview</h1>
       <p className="sub">Live click activity across all Byzantium campaigns.</p>

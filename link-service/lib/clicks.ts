@@ -18,19 +18,50 @@ export type Click = {
   ua: string | null;
   accept_lang: string | null;
   referer: string | null;
-  // Raw device signals, collected by the interstitial in a later milestone:
+  // Device/behaviour signals. The header-only insert leaves these null; the
+  // interstitial collector fills them in via enrichClick() (POST /api/collect).
+  // A row whose fingerprint stays null = JS never ran (a strong bot signal).
   fingerprint: string | null;
   visitor_id: string | null;
   in_app: boolean | null;
+  signals: Record<string, unknown> | null;
 };
 
-export async function logClick(c: Click): Promise<void> {
-  await sql`
+// Insert the header-only click and return its id, so the interstitial can later
+// attach the device signals to this exact row.
+export async function logClick(
+  c: Omit<Click, "signals"> & { signals?: Click["signals"] }
+): Promise<number> {
+  const [row] = await sql`
     INSERT INTO clicks
       (campaign, miner, ts, ip, ua, accept_lang, referer, fingerprint, visitor_id, in_app)
     VALUES
       (${c.campaign}, ${c.miner}, ${c.ts}, ${c.ip}, ${c.ua}, ${c.accept_lang},
        ${c.referer}, ${c.fingerprint}, ${c.visitor_id}, ${c.in_app})
+    RETURNING id
+  `;
+  return row.id as number;
+}
+
+// Attach device/behaviour signals to an already-logged click. Best-effort: the
+// id comes from the client, so treat the data as untrusted raw signal (the
+// authenticity scorer, which lives elsewhere, decides what to trust).
+export async function enrichClick(
+  id: number,
+  patch: {
+    fingerprint?: string | null;
+    visitor_id?: string | null;
+    in_app?: boolean | null;
+    signals?: Record<string, unknown> | null;
+  }
+): Promise<void> {
+  await sql`
+    UPDATE clicks SET
+      fingerprint = COALESCE(${patch.fingerprint ?? null}, fingerprint),
+      visitor_id  = COALESCE(${patch.visitor_id ?? null}, visitor_id),
+      in_app      = COALESCE(${patch.in_app ?? null}, in_app),
+      signals     = ${patch.signals ? JSON.stringify(patch.signals) : null}::jsonb
+    WHERE id = ${id}
   `;
 }
 
@@ -47,6 +78,7 @@ function toClick(r: any): Click {
     fingerprint: r.fingerprint,
     visitor_id: r.visitor_id,
     in_app: r.in_app,
+    signals: r.signals ?? null,
   };
 }
 
@@ -119,4 +151,135 @@ export async function minerClicksByCampaign(
 export async function countMinerClicks(miner: string): Promise<number> {
   const [r] = await sql`SELECT count(*)::int AS n FROM clicks WHERE miner = ${miner}`;
   return r.n;
+}
+
+// ---- Dedup / overlap (raw aggregates for human review, not a score) ----
+
+function toIso(v: any): string {
+  return v instanceof Date ? v.toISOString() : String(v);
+}
+
+export type FingerprintCluster = {
+  fingerprint: string;
+  clicks: number;
+  miners: number;
+  ips: number;
+  campaigns: number;
+  first: string;
+  last: string;
+};
+
+// One row per device fingerprint that repeats (>1 click) or is shared across
+// miners. A single fingerprint crediting MULTIPLE miners is the strongest tell:
+// it means one device is farming clicks across accounts.
+export async function fingerprintClusters(limit = 50): Promise<FingerprintCluster[]> {
+  const rows = await sql`
+    SELECT fingerprint,
+           count(*)::int             AS clicks,
+           count(DISTINCT miner)::int AS miners,
+           count(DISTINCT ip)::int    AS ips,
+           count(DISTINCT campaign)::int AS campaigns,
+           min(ts) AS first, max(ts) AS last
+    FROM clicks
+    WHERE fingerprint IS NOT NULL
+    GROUP BY fingerprint
+    HAVING count(*) > 1 OR count(DISTINCT miner) > 1
+    ORDER BY count(DISTINCT miner) DESC, count(*) DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r: any) => ({
+    fingerprint: r.fingerprint,
+    clicks: r.clicks,
+    miners: r.miners,
+    ips: r.ips,
+    campaigns: r.campaigns,
+    first: toIso(r.first),
+    last: toIso(r.last),
+  }));
+}
+
+export type IpCluster = {
+  ip: string;
+  clicks: number;
+  miners: number;
+  fingerprints: number;
+  campaigns: number;
+  first: string;
+  last: string;
+};
+
+// Same idea by IP — catches farms that rotate the browser fingerprint but sit
+// behind one address (and datacenter IPs with many clicks).
+export async function ipClusters(limit = 50): Promise<IpCluster[]> {
+  const rows = await sql`
+    SELECT ip,
+           count(*)::int                  AS clicks,
+           count(DISTINCT miner)::int      AS miners,
+           count(DISTINCT fingerprint)::int AS fingerprints,
+           count(DISTINCT campaign)::int    AS campaigns,
+           min(ts) AS first, max(ts) AS last
+    FROM clicks
+    WHERE ip IS NOT NULL
+    GROUP BY ip
+    HAVING count(*) > 1 OR count(DISTINCT miner) > 1
+    ORDER BY count(DISTINCT miner) DESC, count(*) DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r: any) => ({
+    ip: r.ip,
+    clicks: r.clicks,
+    miners: r.miners,
+    fingerprints: r.fingerprints,
+    campaigns: r.campaigns,
+    first: toIso(r.first),
+    last: toIso(r.last),
+  }));
+}
+
+export type VelocityRow = {
+  fingerprint: string;
+  clicks: number;
+  perMin: number;
+  miners: number;
+  first: string;
+  last: string;
+};
+
+// Fingerprints producing a burst of clicks inside a recent window — humans don't
+// click the same link many times a minute. Returns those at/above `minCount`
+// within the last `minutes`, fastest first.
+export async function velocityFingerprints(
+  minutes = 60,
+  minCount = 5,
+  limit = 50
+): Promise<VelocityRow[]> {
+  const rows = await sql`
+    SELECT fingerprint,
+           count(*)::int             AS clicks,
+           count(DISTINCT miner)::int AS miners,
+           min(ts) AS first, max(ts) AS last
+    FROM clicks
+    WHERE fingerprint IS NOT NULL
+      AND ts > now() - make_interval(mins => ${minutes})
+    GROUP BY fingerprint
+    HAVING count(*) >= ${minCount}
+    ORDER BY count(*) DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r: any) => {
+    const first = toIso(r.first);
+    const last = toIso(r.last);
+    const spanMin = Math.max(
+      (new Date(last).getTime() - new Date(first).getTime()) / 60000,
+      1 / 60 // floor at one second so a same-instant burst doesn't divide by zero
+    );
+    return {
+      fingerprint: r.fingerprint,
+      clicks: r.clicks,
+      miners: r.miners,
+      perMin: Math.round((r.clicks / spanMin) * 10) / 10,
+      first,
+      last,
+    };
+  });
 }

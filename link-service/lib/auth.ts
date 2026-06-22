@@ -1,34 +1,32 @@
-// Minimal password gate for the miner & admin dashboards.
+// Session management — signed cookie, no server-side session store.
 //
-// This is intentionally simple: a shared password per role (from env vars), and
-// a signed cookie so a login sticks. No user database yet. Good enough to keep
-// the dashboards private; swap in per-miner credentials when clicks move to a DB.
+// Two kinds of session:
+//   - miner: a logged-in miner account (carries minerId); see lib/miners.ts
+//   - admin: the operator, gated by a shared ADMIN_PASSWORD
 //
-//   ADMIN_PASSWORD   – unlocks /admin (all clicks, all miners, campaigns)
-//   MINER_PASSWORD   – unlocks /m for any miner handle (they pick their handle)
-//   AUTH_SECRET      – HMAC key that signs the session cookie
+//   AUTH_SECRET    – HMAC key that signs the session cookie
+//   ADMIN_PASSWORD – unlocks the admin dashboard
 //
 // Dev fallbacks let it run locally with zero setup; ALWAYS set real values in
-// Vercel for production (see SYSTEM.md).
+// Vercel for production.
 
 import { cookies } from "next/headers";
 import crypto from "crypto";
 
 const COOKIE = "byz_session";
-const MAX_AGE = 60 * 60 * 12; // 12h
+const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin";
-const MINER_PASSWORD = process.env.MINER_PASSWORD || "miner";
 const SECRET = process.env.AUTH_SECRET || "dev-insecure-secret-change-me";
 
-export type Role = "admin" | "miner";
-export type Session = { role: Role; miner?: string };
+export type Session =
+  | { kind: "miner"; minerId: number }
+  | { kind: "admin" };
 
 function sign(payload: string): string {
   return crypto.createHmac("sha256", SECRET).update(payload).digest("base64url");
 }
 
-// token = base64url(json).signature  — tamper-evident, not encrypted.
 function makeToken(session: Session): string {
   const body = Buffer.from(JSON.stringify(session)).toString("base64url");
   return `${body}.${sign(body)}`;
@@ -37,7 +35,6 @@ function makeToken(session: Session): string {
 function readToken(token: string): Session | null {
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
-  // Constant-time compare to avoid leaking the signature byte-by-byte.
   const expected = sign(body);
   if (sig.length !== expected.length) return null;
   if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
@@ -48,13 +45,8 @@ function readToken(token: string): Session | null {
   }
 }
 
-// Check a submitted password for a role. Returns the session to store, or null.
-export function checkPassword(role: Role, password: string, miner?: string): Session | null {
-  if (role === "admin" && password === ADMIN_PASSWORD) return { role: "admin" };
-  if (role === "miner" && password === MINER_PASSWORD && miner) {
-    return { role: "miner", miner: miner.trim().toLowerCase() };
-  }
-  return null;
+export function checkAdminPassword(password: string): boolean {
+  return password === ADMIN_PASSWORD;
 }
 
 export function startSession(session: Session): void {

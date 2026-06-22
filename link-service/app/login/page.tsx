@@ -1,50 +1,30 @@
-import { login } from "./actions";
+import { minerLogin, adminLogin } from "./actions";
 
-// Shared login page for both roles. /login?role=admin or /login?role=miner.
-// Miners also enter their handle so the session knows whose data to show.
+// Login. /login for miners (email/password), /login?role=admin for the operator.
 
 export const dynamic = "force-dynamic";
 
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { role?: string; error?: string; next?: string };
+  searchParams: { role?: string; error?: string };
 }) {
-  const role = searchParams.role === "admin" ? "admin" : "miner";
-  const isAdmin = role === "admin";
+  const isAdmin = searchParams.role === "admin";
 
   return (
     <main className="wrap">
-      <form className="login card" action={login}>
-        <h1 style={{ marginBottom: 6 }}>
-          {isAdmin ? "Admin sign in" : "Miner sign in"}
-        </h1>
+      <form className="login card" action={isAdmin ? adminLogin : minerLogin}>
+        <h1 style={{ marginBottom: 6 }}>{isAdmin ? "Admin sign in" : "Miner sign in"}</h1>
         <p className="sub" style={{ marginBottom: 22 }}>
-          {isAdmin
-            ? "Manage campaigns and view all click activity."
-            : "View clicks and links for your miner handle."}
+          {isAdmin ? "Operator access." : "Access your clicks, links and verification."}
         </p>
 
-        {searchParams.error && (
-          <div className="error">Incorrect details — try again.</div>
-        )}
-
-        <input type="hidden" name="role" value={role} />
-        {searchParams.next && (
-          <input type="hidden" name="next" value={searchParams.next} />
-        )}
+        {searchParams.error && <div className="error">{searchParams.error}</div>}
 
         {!isAdmin && (
           <div className="field">
-            <label htmlFor="miner">Miner handle</label>
-            <input
-              className="input"
-              id="miner"
-              name="miner"
-              placeholder="e.g. alice"
-              autoComplete="username"
-              required
-            />
+            <label htmlFor="email">Email</label>
+            <input className="input" id="email" name="email" type="email" autoComplete="email" required />
           </div>
         )}
 
@@ -60,15 +40,15 @@ export default function LoginPage({
           />
         </div>
 
-        <button className="btn" type="submit">
-          Sign in
-        </button>
+        <button className="btn" type="submit">Sign in</button>
 
         <p className="sub" style={{ marginTop: 18, marginBottom: 0, textAlign: "center" }}>
           {isAdmin ? (
-            <a href="/login?role=miner">Miner sign in →</a>
+            <a href="/login">Miner sign in →</a>
           ) : (
-            <a href="/login?role=admin">Admin sign in →</a>
+            <>
+              No account? <a href="/signup">Sign up</a> · <a href="/login?role=admin">Admin</a>
+            </>
           )}
         </p>
       </form>

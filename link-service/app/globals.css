@@ -76,6 +76,28 @@ h2 { font-size: 15px; font-weight: 600; margin: 32px 0 14px; color: var(--muted)
 
 .empty { color: var(--muted); padding: 40px 0; text-align: center; font-size: 14px; }
 
+/* Click signal flags + expandable detail */
+.flag {
+  display: inline-block; margin-right: 5px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; font-family: ui-monospace, Menlo, monospace;
+  background: rgba(248, 113, 113, 0.16); color: var(--red);
+}
+.flag.ok { background: rgba(74, 222, 128, 0.14); color: var(--green); }
+.flag.warn { background: rgba(201, 168, 74, 0.16); color: var(--gold); }
+details.sig > summary {
+  cursor: pointer; color: var(--gold); font-size: 13px; list-style: none; user-select: none;
+}
+details.sig > summary::-webkit-details-marker { display: none; }
+details.sig > summary::before { content: "▸ "; color: var(--muted); }
+details.sig[open] > summary::before { content: "▾ "; }
+.siggrid {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px;
+  margin: 12px 0 4px; padding: 14px; border-radius: 9px;
+  background: var(--panel-2); border: 1px solid var(--border); font-size: 13px;
+}
+.siggrid dt { color: var(--muted); }
+.siggrid dd { margin: 0; word-break: break-word; }
+
 /* Forms / login */
 .login { max-width: 360px; margin: 14vh auto 0; }
 .field { margin-bottom: 14px; }

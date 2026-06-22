@@ -1,56 +1,53 @@
+import { redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { getMinerById, getSocials, type Social } from "@/lib/miners";
 import { getMinerSummary } from "@/lib/stats";
 import { listCampaigns } from "@/lib/campaigns";
 import { Nav } from "../nav";
 import { LinkBuilder } from "./LinkBuilder";
 
-// Miner dashboard. Shows one miner's own clicks + a link builder.
-//
-// NOTE: the password gate is temporarily OFF. The miner is taken from the URL
-// (?miner=alice); with no handle, we show a quick picker. To restore gating,
-// re-add the getSession()/redirect check and read the handle from the session.
+// Miner dashboard — for the logged-in miner account. Shows their clicks, a link
+// builder, and their linked/verified social handles.
 
 export const dynamic = "force-dynamic";
 
-export default async function MinerPage({
-  searchParams,
-}: {
-  searchParams: { miner?: string };
-}) {
-  const miner = (searchParams.miner || "").trim().toLowerCase();
+const PLATFORMS = [
+  { key: "x", label: "X (Twitter)" },
+  { key: "farcaster", label: "Farcaster" },
+] as const;
+
+function socialPill(s?: Social) {
+  if (!s) return <span className="pill off">not linked</span>;
+  if (s.status === "verified") return <span className="pill on">verified</span>;
+  if (s.status === "pending") return <span className="pill">pending</span>;
+  return <span className="pill off">rejected</span>;
+}
+
+export default async function MinerPage() {
+  const session = getSession();
+  if (session?.kind !== "miner") redirect("/login");
+
+  const miner = await getMinerById(session.minerId);
+  if (!miner) redirect("/logout");
+
+  const [m, socials] = await Promise.all([
+    getMinerSummary(miner.handle),
+    getSocials(miner.id),
+  ]);
+  const byPlatform = new Map(socials.map((s) => [s.platform, s]));
   const campaigns = listCampaigns().map((c) => ({ slug: c.slug, name: c.name }));
-
-  // No handle chosen yet — ask for one.
-  if (!miner) {
-    return (
-      <main className="wrap">
-        <Nav active="miner" />
-        <h1>Miner dashboard</h1>
-        <p className="sub">Enter a miner handle to view its clicks and links.</p>
-        <form className="login card" method="get" style={{ margin: "0" }}>
-          <div className="field">
-            <label htmlFor="miner">Miner handle</label>
-            <input className="input" id="miner" name="miner" placeholder="e.g. alice" required />
-          </div>
-          <button className="btn" type="submit">View dashboard</button>
-        </form>
-      </main>
-    );
-  }
-
-  const m = await getMinerSummary(miner);
 
   return (
     <main className="wrap">
-      <Nav active="miner" />
+      <Nav active="miner" session={session} />
 
       <h1>
-        {miner}
+        {miner.display_name || miner.handle}
         <span className="muted" style={{ fontWeight: 400, fontSize: 16 }}>
-          {" "}
-          · dashboard <a href="/m" style={{ fontSize: 14 }}>(switch)</a>
+          {" "}· @{miner.handle}
         </span>
       </h1>
-      <p className="sub">Clicks and links across campaigns.</p>
+      <p className="sub">Your clicks, links and verified socials.</p>
 
       <div className="grid">
         <div className="card stat">
@@ -61,10 +58,45 @@ export default async function MinerPage({
           <div className="num">{m.perCampaign.length}</div>
           <div className="lbl">Campaigns you&rsquo;ve driven</div>
         </div>
+        <div className="card stat">
+          <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
+          <div className="lbl">Verified socials</div>
+        </div>
+      </div>
+
+      <h2>Linked socials</h2>
+      <div className="card" style={{ padding: 0 }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Platform</th>
+              <th>Handle</th>
+              <th>Status</th>
+              <th className="right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PLATFORMS.map((p) => {
+              const s = byPlatform.get(p.key);
+              return (
+                <tr key={p.key}>
+                  <td>{p.label}</td>
+                  <td className="mono">{s ? `@${s.handle}` : "—"}</td>
+                  <td>{socialPill(s)}</td>
+                  <td className="right">
+                    <a className="btn sm ghost" href={`/m/verify?platform=${p.key}`}>
+                      {s?.status === "verified" ? "Re-link" : s ? "Continue" : "Connect"}
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <h2>Build a link</h2>
-      <LinkBuilder miner={miner} campaigns={campaigns} />
+      <LinkBuilder miner={miner.handle} campaigns={campaigns} />
 
       <h2>Clicks by campaign</h2>
       <div className="card" style={{ padding: 0 }}>
@@ -82,9 +114,7 @@ export default async function MinerPage({
               {m.perCampaign.map((row) => (
                 <tr key={row.campaign}>
                   <td className="mono">/{row.campaign}</td>
-                  <td className="right">
-                    <strong>{row.count.toLocaleString()}</strong>
-                  </td>
+                  <td className="right"><strong>{row.count.toLocaleString()}</strong></td>
                 </tr>
               ))}
             </tbody>

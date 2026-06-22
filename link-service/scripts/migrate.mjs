@@ -32,6 +32,41 @@ const statements = [
   `CREATE INDEX IF NOT EXISTS clicks_campaign_ts_idx ON clicks (campaign, ts DESC)`,
   `CREATE INDEX IF NOT EXISTS clicks_miner_ts_idx    ON clicks (miner, ts DESC)`,
   `CREATE INDEX IF NOT EXISTS clicks_ts_idx          ON clicks (ts DESC)`,
+
+  // Rich device/behaviour signals gathered by the interstitial collector
+  // (lib/fingerprint.ts) after the header-only click row is inserted. The full
+  // component dump lives in `signals` (jsonb); the high-value bits are also kept
+  // in their own columns for fast querying. Idempotent ALTERs so re-running is safe.
+  `ALTER TABLE clicks ADD COLUMN IF NOT EXISTS signals JSONB`,
+  `CREATE INDEX IF NOT EXISTS clicks_fingerprint_idx ON clicks (fingerprint)`,
+  `CREATE INDEX IF NOT EXISTS clicks_visitor_idx     ON clicks (visitor_id)`,
+
+  // Miner accounts. handle is the link slug (/<handle>/<campaign>).
+  `CREATE TABLE IF NOT EXISTS miners (
+     id            BIGSERIAL PRIMARY KEY,
+     handle        TEXT        NOT NULL UNIQUE,
+     email         TEXT        NOT NULL UNIQUE,
+     password_hash TEXT        NOT NULL,
+     display_name  TEXT,
+     status        TEXT        NOT NULL DEFAULT 'active',
+     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+   )`,
+  // Linked social handles, verified by proof-of-post.
+  `CREATE TABLE IF NOT EXISTS miner_socials (
+     id          BIGSERIAL PRIMARY KEY,
+     miner_id    BIGINT      NOT NULL REFERENCES miners(id) ON DELETE CASCADE,
+     platform    TEXT        NOT NULL,             -- 'x' | 'farcaster'
+     handle      TEXT        NOT NULL,             -- their @handle on that platform
+     code        TEXT        NOT NULL,             -- verification nonce to post
+     post_url    TEXT,                             -- the proof post they submitted
+     status      TEXT        NOT NULL DEFAULT 'pending', -- pending|verified|rejected
+     verified_at TIMESTAMPTZ,
+     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+     UNIQUE (miner_id, platform)
+   )`,
+  // A verified handle can only belong to one miner.
+  `CREATE UNIQUE INDEX IF NOT EXISTS miner_socials_verified_handle_idx
+     ON miner_socials (platform, lower(handle)) WHERE status = 'verified'`,
 ];
 
 for (const stmt of statements) {
