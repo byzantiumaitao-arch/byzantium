@@ -1,28 +1,26 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
 import { getOverview, getTopMiners } from "@/lib/stats";
 import { getRecentClicks } from "@/lib/clicks";
 import { Nav } from "../nav";
 
-// Admin dashboard — gated. Full visibility: every campaign, the miner
-// leaderboard, and raw recent clicks (incl. IP/UA, which the public/miner views
-// never show). Campaign editing comes once campaigns move to a DB.
+// Admin dashboard. Full visibility: every campaign, the miner leaderboard, and
+// raw recent clicks (incl. IP/UA). Campaign editing comes once campaigns move to
+// a DB.
+//
+// NOTE: the password gate is temporarily OFF — anyone can view this. Restore it
+// by re-adding the getSession()/redirect check below.
 
 export const dynamic = "force-dynamic";
 
-export default function AdminPage() {
-  const session = getSession();
-  if (session?.role !== "admin") {
-    redirect("/login?role=admin&next=/admin");
-  }
-
-  const o = getOverview();
-  const topMiners = getTopMiners(20);
-  const recent = getRecentClicks().slice(0, 100);
+export default async function AdminPage() {
+  const [o, topMiners, recent] = await Promise.all([
+    getOverview(),
+    getTopMiners(20),
+    getRecentClicks({ limit: 100 }),
+  ]);
 
   return (
     <main className="wrap">
-      <Nav active="admin" session={session} />
+      <Nav active="admin" />
 
       <h1>Admin</h1>
       <p className="sub">All campaigns, miners, and raw click activity.</p>

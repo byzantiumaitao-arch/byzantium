@@ -1,13 +1,9 @@
-import { type Session } from "@/lib/auth";
-
-// Top navigation shared by all dashboards. Links shown depend on who's signed in.
-export function Nav({
-  active,
-  session,
-}: {
-  active: "overview" | "miner" | "admin";
-  session: Session | null;
-}) {
+// Top navigation shared by all dashboards.
+//
+// NOTE: auth is temporarily disabled ("take out password for now"), so every
+// link is shown and the sign-in/out items are gone. To restore gating, revert
+// this file plus the auth checks in app/m/page.tsx and app/admin/page.tsx.
+export function Nav({ active }: { active: "overview" | "miner" | "admin" }) {
   return (
     <nav className="nav">
       <span className="brand">Byzanti&#1606;m</span>
@@ -15,21 +11,12 @@ export function Nav({
         <a href="/dashboard" className={active === "overview" ? "active" : ""}>
           Overview
         </a>
-        {session?.role === "miner" && (
-          <a href="/m" className={active === "miner" ? "active" : ""}>
-            My dashboard
-          </a>
-        )}
-        {session?.role === "admin" && (
-          <a href="/admin" className={active === "admin" ? "active" : ""}>
-            Admin
-          </a>
-        )}
-        {session ? (
-          <a href="/logout">Sign out</a>
-        ) : (
-          <a href="/login?role=miner">Sign in</a>
-        )}
+        <a href="/m" className={active === "miner" ? "active" : ""}>
+          Miner
+        </a>
+        <a href="/admin" className={active === "admin" ? "active" : ""}>
+          Admin
+        </a>
       </span>
     </nav>
   );

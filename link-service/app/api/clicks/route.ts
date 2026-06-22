@@ -16,6 +16,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const campaign = req.nextUrl.searchParams.get("campaign") || undefined;
   const miner = req.nextUrl.searchParams.get("miner") || undefined;
-  const clicks = getRecentClicks({ campaign, miner });
+  const clicks = await getRecentClicks({ campaign, miner });
   return NextResponse.json({ count: clicks.length, clicks });
 }

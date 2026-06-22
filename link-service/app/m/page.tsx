@@ -1,36 +1,56 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
 import { getMinerSummary } from "@/lib/stats";
 import { listCampaigns } from "@/lib/campaigns";
 import { Nav } from "../nav";
 import { LinkBuilder } from "./LinkBuilder";
 
-// Miner dashboard — gated. A signed-in miner sees only their own clicks, plus a
-// builder for their personalised links.
+// Miner dashboard. Shows one miner's own clicks + a link builder.
+//
+// NOTE: the password gate is temporarily OFF. The miner is taken from the URL
+// (?miner=alice); with no handle, we show a quick picker. To restore gating,
+// re-add the getSession()/redirect check and read the handle from the session.
 
 export const dynamic = "force-dynamic";
 
-export default function MinerPage() {
-  const session = getSession();
-  if (session?.role !== "miner" || !session.miner) {
-    redirect("/login?role=miner&next=/m");
+export default async function MinerPage({
+  searchParams,
+}: {
+  searchParams: { miner?: string };
+}) {
+  const miner = (searchParams.miner || "").trim().toLowerCase();
+  const campaigns = listCampaigns().map((c) => ({ slug: c.slug, name: c.name }));
+
+  // No handle chosen yet — ask for one.
+  if (!miner) {
+    return (
+      <main className="wrap">
+        <Nav active="miner" />
+        <h1>Miner dashboard</h1>
+        <p className="sub">Enter a miner handle to view its clicks and links.</p>
+        <form className="login card" method="get" style={{ margin: "0" }}>
+          <div className="field">
+            <label htmlFor="miner">Miner handle</label>
+            <input className="input" id="miner" name="miner" placeholder="e.g. alice" required />
+          </div>
+          <button className="btn" type="submit">View dashboard</button>
+        </form>
+      </main>
+    );
   }
 
-  const m = getMinerSummary(session.miner);
-  const campaigns = listCampaigns().map((c) => ({ slug: c.slug, name: c.name }));
+  const m = await getMinerSummary(miner);
 
   return (
     <main className="wrap">
-      <Nav active="miner" session={session} />
+      <Nav active="miner" />
 
       <h1>
-        {session.miner}
+        {miner}
         <span className="muted" style={{ fontWeight: 400, fontSize: 16 }}>
           {" "}
-          · my dashboard
+          · dashboard <a href="/m" style={{ fontSize: 14 }}>(switch)</a>
         </span>
       </h1>
-      <p className="sub">Your clicks and links across campaigns.</p>
+      <p className="sub">Clicks and links across campaigns.</p>
 
       <div className="grid">
         <div className="card stat">
@@ -44,7 +64,7 @@ export default function MinerPage() {
       </div>
 
       <h2>Build a link</h2>
-      <LinkBuilder miner={session.miner} campaigns={campaigns} />
+      <LinkBuilder miner={miner} campaigns={campaigns} />
 
       <h2>Clicks by campaign</h2>
       <div className="card" style={{ padding: 0 }}>

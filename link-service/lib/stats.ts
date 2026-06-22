@@ -1,14 +1,21 @@
 // Aggregation helpers for the dashboards.
 //
-// These read the click store via getRecentClicks() and roll the raw clicks up
-// into the numbers the dashboards show. Keeping all the counting here means the
-// pages stay declarative, and when clicks move to Postgres only this file and
-// lib/clicks.ts change — the dashboards keep calling the same functions.
+// These combine the SQL rollups in lib/clicks.ts with the campaign registry to
+// produce exactly what each dashboard renders. Counting happens in Postgres
+// (exact, not capped by a row limit); this layer just merges and shapes it.
 //
 // NOTE: this counts RAW clicks only. It says nothing about whether a click is a
 // genuine human — that authenticity scoring lives in the private repo, never here.
 
-import { getRecentClicks, type Click } from "./clicks";
+import {
+  countTotalClicks,
+  countDistinctMiners,
+  clicksByCampaign,
+  clicksByMiner,
+  minerClicksByCampaign,
+  countMinerClicks,
+  getRecentClicks,
+} from "./clicks";
 import { listCampaigns, type Campaign } from "./campaigns";
 
 export type CampaignStat = Campaign & { clicks: number; miners: number };
@@ -22,59 +29,42 @@ export type Overview = {
 };
 
 // Public, campaign-centric rollup for the overall dashboard.
-export function getOverview(): Overview {
-  const clicks = getRecentClicks();
+export async function getOverview(): Promise<Overview> {
   const campaigns = listCampaigns();
+  const [total, minerCount, byCampaign] = await Promise.all([
+    countTotalClicks(),
+    countDistinctMiners(),
+    clicksByCampaign(),
+  ]);
 
-  const campaignStats: CampaignStat[] = campaigns.map((c) => {
-    const mine = clicks.filter((k) => k.campaign === c.slug);
-    return {
+  const counts = new Map(byCampaign.map((r) => [r.campaign, r]));
+  const campaignStats: CampaignStat[] = campaigns
+    .map((c) => ({
       ...c,
-      clicks: mine.length,
-      miners: new Set(mine.map((k) => k.miner)).size,
-    };
-  });
-  // Busiest campaign first.
-  campaignStats.sort((a, b) => b.clicks - a.clicks);
+      clicks: counts.get(c.slug)?.clicks ?? 0,
+      miners: counts.get(c.slug)?.miners ?? 0,
+    }))
+    .sort((a, b) => b.clicks - a.clicks);
 
   return {
-    totalClicks: clicks.length,
+    totalClicks: total,
     campaignCount: campaigns.length,
-    minerCount: new Set(clicks.map((k) => k.miner)).size,
+    minerCount,
     campaigns: campaignStats,
   };
 }
 
 // Leaderboard of miners by click volume (admin view).
-export function getTopMiners(limit = 50): MinerStat[] {
-  const clicks = getRecentClicks();
-  const byMiner = new Map<string, Click[]>();
-  for (const k of clicks) {
-    const list = byMiner.get(k.miner) || [];
-    list.push(k);
-    byMiner.set(k.miner, list);
-  }
-  return [...byMiner.entries()]
-    .map(([miner, list]) => ({
-      miner,
-      clicks: list.length,
-      campaigns: new Set(list.map((k) => k.campaign)).size,
-    }))
-    .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, limit);
+export async function getTopMiners(limit = 50): Promise<MinerStat[]> {
+  return clicksByMiner(limit);
 }
 
 // Everything one miner needs to see on their own dashboard.
-export function getMinerSummary(miner: string) {
-  const clicks = getRecentClicks({ miner });
-  const byCampaign = new Map<string, number>();
-  for (const k of clicks) byCampaign.set(k.campaign, (byCampaign.get(k.campaign) || 0) + 1);
-  return {
-    miner,
-    totalClicks: clicks.length,
-    perCampaign: [...byCampaign.entries()]
-      .map(([campaign, count]) => ({ campaign, count }))
-      .sort((a, b) => b.count - a.count),
-    recent: clicks.slice(0, 50),
-  };
+export async function getMinerSummary(miner: string) {
+  const [totalClicks, perCampaign, recent] = await Promise.all([
+    countMinerClicks(miner),
+    minerClicksByCampaign(miner),
+    getRecentClicks({ miner, limit: 50 }),
+  ]);
+  return { miner, totalClicks, perCampaign, recent };
 }
