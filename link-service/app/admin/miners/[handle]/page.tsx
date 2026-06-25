@@ -108,20 +108,14 @@ export default async function MinerDetailPage({
             <thead>
               <tr>
                 <th>Campaign</th>
-                <th className="right">Total</th>
-                <th className="right">Qualified</th>
+                <th className="right">Total clicks</th>
               </tr>
             </thead>
             <tbody>
               {summary.perCampaign.map((row) => (
                 <tr key={row.campaign}>
                   <td className="mono">/{row.campaign}</td>
-                  <td className="right muted">{row.total.toLocaleString()}</td>
-                  <td className="right">
-                    <strong style={{ color: "var(--gold)" }}>
-                      {row.qualified.toLocaleString()}
-                    </strong>
-                  </td>
+                  <td className="right"><strong>{row.total.toLocaleString()}</strong></td>
                 </tr>
               ))}
             </tbody>

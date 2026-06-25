@@ -59,13 +59,18 @@ export async function getTopMiners(limit = 50): Promise<MinerStat[]> {
   return clicksByMiner(limit);
 }
 
-export type MinerCampaignRow = { campaign: string; total: number; qualified: number };
-export type RecentClick = Click & { qualified: boolean };
-export type DayBucket = { day: string; total: number; qualified: number };
+export type MinerCampaignRow = { campaign: string; total: number };
+export type DayBucket = { day: string; total: number };
 
-// Bucket clicks into the last `days` calendar days (UTC), total + qualified each.
-// Always returns one entry per day (zero-filled) so the chart has a steady axis.
-function dailyBuckets(clicks: Click[], days = 14): DayBucket[] {
+// Qualified clicks are only CONFIRMED after this review window. Showing them on a
+// delay (and never per-click) is deliberate anti-gaming: a miner can't tell in
+// real time which technique passed the bot/device checks, so they can't tune an
+// attack against the filter. The admin views still see live per-click detail.
+const REVIEW_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+// Total clicks per calendar day (UTC), last `days` days, zero-filled. Total only
+// — no qualified/filtered split, so the per-day filtering pattern isn't exposed.
+function dailyTotals(clicks: Click[], days = 14): DayBucket[] {
   const today = new Date();
   const keys: string[] = [];
   const map = new Map<string, DayBucket>();
@@ -74,47 +79,42 @@ function dailyBuckets(clicks: Click[], days = 14): DayBucket[] {
     d.setUTCDate(d.getUTCDate() - i);
     const key = d.toISOString().slice(0, 10);
     keys.push(key);
-    map.set(key, { day: key, total: 0, qualified: 0 });
+    map.set(key, { day: key, total: 0 });
   }
   for (const c of clicks) {
-    const key = c.ts.slice(0, 10);
-    const b = map.get(key);
-    if (b) {
-      b.total++;
-      if (passesFilter(c)) b.qualified++;
-    }
+    const b = map.get(c.ts.slice(0, 10));
+    if (b) b.total++;
   }
   return keys.map((k) => map.get(k)!);
 }
 
-// Everything one miner needs to see on their own dashboard.
-//
-// "total" = every recorded click; "qualified" = passed the public fingerprint /
-// bot pre-filter (see passesFilter). Both are computed from the same loaded set
-// so the two numbers are always consistent with each other. Capped at 5000 rows
-// (paginate later if a miner ever exceeds it).
+// What a miner sees on their own dashboard. Totals are live; the single
+// "qualified" number is DELAYED (only clicks older than the review window count)
+// and there is intentionally no per-click or per-period qualified breakdown.
 export async function getMinerSummary(miner: string) {
   const clicks = await getRecentClicks({ miner, limit: 5000 });
+  const cutoff = Date.now() - REVIEW_MS;
 
   const byCampaign = new Map<string, MinerCampaignRow>();
-  let qualifiedTotal = 0;
+  let qualifiedConfirmed = 0;
+  let inReview = 0;
   for (const c of clicks) {
-    const row =
-      byCampaign.get(c.campaign) || { campaign: c.campaign, total: 0, qualified: 0 };
+    const row = byCampaign.get(c.campaign) || { campaign: c.campaign, total: 0 };
     row.total++;
-    if (passesFilter(c)) {
-      row.qualified++;
-      qualifiedTotal++;
-    }
     byCampaign.set(c.campaign, row);
+
+    if (Date.parse(c.ts) >= cutoff) inReview++; // too recent to confirm yet
+    else if (passesFilter(c)) qualifiedConfirmed++; // confirmed genuine
   }
 
   return {
     miner,
     totalClicks: clicks.length,
-    qualifiedClicks: qualifiedTotal,
+    qualifiedClicks: qualifiedConfirmed, // delayed, aggregate only
+    inReview,
+    reviewHours: REVIEW_MS / 3_600_000,
     perCampaign: [...byCampaign.values()].sort((a, b) => b.total - a.total),
-    daily: dailyBuckets(clicks, 14),
-    recent: clicks.slice(0, 50).map((c) => ({ ...c, qualified: passesFilter(c) })),
+    daily: dailyTotals(clicks, 14),
+    recent: clicks.slice(0, 50), // shown without any qualified/filtered label
   };
 }
