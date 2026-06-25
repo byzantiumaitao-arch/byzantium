@@ -30,7 +30,7 @@ export type Overview = {
 
 // Public, campaign-centric rollup for the overall dashboard.
 export async function getOverview(): Promise<Overview> {
-  const campaigns = listCampaigns();
+  const campaigns = await listCampaigns();
   const [total, minerCount, byCampaign] = await Promise.all([
     countTotalClicks(),
     countDistinctMiners(),
@@ -61,6 +61,31 @@ export async function getTopMiners(limit = 50): Promise<MinerStat[]> {
 
 export type MinerCampaignRow = { campaign: string; total: number; qualified: number };
 export type RecentClick = Click & { qualified: boolean };
+export type DayBucket = { day: string; total: number; qualified: number };
+
+// Bucket clicks into the last `days` calendar days (UTC), total + qualified each.
+// Always returns one entry per day (zero-filled) so the chart has a steady axis.
+function dailyBuckets(clicks: Click[], days = 14): DayBucket[] {
+  const today = new Date();
+  const keys: string[] = [];
+  const map = new Map<string, DayBucket>();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    keys.push(key);
+    map.set(key, { day: key, total: 0, qualified: 0 });
+  }
+  for (const c of clicks) {
+    const key = c.ts.slice(0, 10);
+    const b = map.get(key);
+    if (b) {
+      b.total++;
+      if (passesFilter(c)) b.qualified++;
+    }
+  }
+  return keys.map((k) => map.get(k)!);
+}
 
 // Everything one miner needs to see on their own dashboard.
 //
@@ -89,6 +114,7 @@ export async function getMinerSummary(miner: string) {
     totalClicks: clicks.length,
     qualifiedClicks: qualifiedTotal,
     perCampaign: [...byCampaign.values()].sort((a, b) => b.total - a.total),
+    daily: dailyBuckets(clicks, 14),
     recent: clicks.slice(0, 50).map((c) => ({ ...c, qualified: passesFilter(c) })),
   };
 }

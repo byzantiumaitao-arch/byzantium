@@ -22,7 +22,7 @@ export async function GET(
 ) {
   const { miner, campaign: campaignSlug } = params;
 
-  const campaign = getCampaign(campaignSlug);
+  const campaign = await getCampaign(campaignSlug);
   // Unknown/inactive campaign, or junk that looks like a file — don't log a junk
   // click; just send the visitor to the marketing site.
   if (!campaign || campaignSlug.includes(".") || miner.includes(".")) {

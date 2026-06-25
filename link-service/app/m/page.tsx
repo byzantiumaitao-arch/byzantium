@@ -35,7 +35,11 @@ export default async function MinerPage() {
     getSocials(miner.id),
   ]);
   const byPlatform = new Map(socials.map((s) => [s.platform, s]));
-  const campaigns = listCampaigns().map((c) => ({ slug: c.slug, name: c.name }));
+  const campaigns = (await listCampaigns()).map((c) => ({ slug: c.slug, name: c.name }));
+
+  // chart scales
+  const maxCampaign = Math.max(1, ...m.perCampaign.map((r) => r.total));
+  const maxDay = Math.max(1, ...m.daily.map((d) => d.total));
 
   return (
     <main className="wrap">
@@ -111,68 +115,89 @@ export default async function MinerPage() {
       <LinkBuilder miner={miner.handle} campaigns={campaigns} />
 
       <h2>Clicks by campaign</h2>
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card chart">
         {m.perCampaign.length === 0 ? (
           <div className="empty">No clicks yet — share a link to get started.</div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th className="right">Total</th>
-                <th className="right">Qualified</th>
-              </tr>
-            </thead>
-            <tbody>
-              {m.perCampaign.map((row) => (
-                <tr key={row.campaign}>
-                  <td className="mono">/{row.campaign}</td>
-                  <td className="right muted">{row.total.toLocaleString()}</td>
-                  <td className="right">
-                    <strong style={{ color: "var(--gold)" }}>
-                      {row.qualified.toLocaleString()}
-                    </strong>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {m.perCampaign.map((row) => (
+              <div className="cbar" key={row.campaign}>
+                <div className="clabel"><span className="mono">/{row.campaign}</span></div>
+                <div className="ctrack">
+                  <div className="cfill" style={{ width: `${(row.total / maxCampaign) * 100}%` }} />
+                  <div className="cqual" style={{ width: `${(row.qualified / maxCampaign) * 100}%` }} />
+                </div>
+                <div className="cval">
+                  <strong>{row.qualified.toLocaleString()}</strong> / {row.total.toLocaleString()}
+                </div>
+              </div>
+            ))}
+            <div className="tlegend">
+              <span><span className="dot" style={{ background: "var(--gold)" }} />Qualified</span>
+              <span><span className="dot" style={{ background: "rgba(201,168,74,0.28)" }} />Total</span>
+            </div>
+          </>
         )}
       </div>
 
-      <h2>Recent clicks</h2>
-      <div className="card" style={{ padding: 0 }}>
-        {m.recent.length === 0 ? (
+      <h2>Activity (last 14 days)</h2>
+      <div className="card">
+        {m.totalClicks === 0 ? (
           <div className="empty">No clicks yet.</div>
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Campaign</th>
-                <th>Referer</th>
-                <th className="right">Counts?</th>
-              </tr>
-            </thead>
-            <tbody>
-              {m.recent.map((k, i) => (
-                <tr key={i}>
-                  <td className="muted mono">{new Date(k.ts).toLocaleString()}</td>
-                  <td className="mono">/{k.campaign}</td>
-                  <td className="muted">
-                    {k.referer ? k.referer.replace(/^https?:\/\//, "") : "direct"}
-                  </td>
-                  <td className="right">
-                    {k.qualified ? (
-                      <span className="pill on">qualified</span>
-                    ) : (
-                      <span className="pill off">filtered</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="tchart">
+              {m.daily.map((d) => {
+                const qpct = d.total ? (d.qualified / d.total) * 100 : 0;
+                return (
+                  <div
+                    className="tcol"
+                    key={d.day}
+                    title={`${d.day} — ${d.qualified}/${d.total} qualified`}
+                  >
+                    <div className="tbar" style={{ height: `${(d.total / maxDay) * 100}%` }}>
+                      <div className="tq" style={{ height: `${qpct}%` }} />
+                      <div className="tf" style={{ height: `${100 - qpct}%` }} />
+                    </div>
+                    <div className="tlbl">{d.day.slice(5)}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="tlegend">
+              <span><span className="dot" style={{ background: "var(--gold)" }} />Qualified</span>
+              <span><span className="dot" style={{ background: "rgba(255,255,255,0.10)" }} />Filtered</span>
+            </div>
+
+            <details className="sig" style={{ marginTop: 16 }}>
+              <summary>Recent clicks (detail)</summary>
+              <table className="table" style={{ marginTop: 10 }}>
+                <thead>
+                  <tr>
+                    <th>When</th><th>Campaign</th><th>Referer</th><th className="right">Counts?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.recent.map((k, i) => (
+                    <tr key={i}>
+                      <td className="muted mono">{new Date(k.ts).toLocaleString()}</td>
+                      <td className="mono">/{k.campaign}</td>
+                      <td className="muted">
+                        {k.referer ? k.referer.replace(/^https?:\/\//, "") : "direct"}
+                      </td>
+                      <td className="right">
+                        {k.qualified ? (
+                          <span className="pill on">qualified</span>
+                        ) : (
+                          <span className="pill off">filtered</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          </>
         )}
       </div>
     </main>

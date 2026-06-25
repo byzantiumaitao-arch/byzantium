@@ -78,6 +78,17 @@ const statements = [
   // A verified handle can only belong to one miner.
   `CREATE UNIQUE INDEX IF NOT EXISTS miner_socials_verified_handle_idx
      ON miner_socials (platform, lower(handle)) WHERE status = 'verified'`,
+
+  // Campaigns: where each link redirects. Admin-managed; the miner link builder
+  // and the redirect handler read from here, so adding a campaign instantly makes
+  // it available to every miner without a code change.
+  `CREATE TABLE IF NOT EXISTS campaigns (
+     slug        TEXT        PRIMARY KEY,
+     name        TEXT        NOT NULL,
+     destination TEXT        NOT NULL,
+     active      BOOLEAN     NOT NULL DEFAULT true,
+     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+   )`,
 ];
 
 for (const stmt of statements) {
@@ -85,5 +96,15 @@ for (const stmt of statements) {
   console.log("✓", stmt.split("\n")[0].trim());
 }
 
+// Seed the two original campaigns once (only if the table is empty), so existing
+// links keep working. ON CONFLICT keeps this idempotent and non-destructive.
+await sql`
+  INSERT INTO campaigns (slug, name, destination, active) VALUES
+    ('launch', 'Byzantium — awareness', 'https://byzantiumai.net', true),
+    ('buy',    'Buy ن on Taostats',     'https://taostats.io',     true)
+  ON CONFLICT (slug) DO NOTHING
+`;
+
 const [{ count }] = await sql.query("SELECT count(*)::int AS count FROM clicks");
-console.log(`\nMigration complete. clicks table ready (${count} rows).`);
+const [{ count: camps }] = await sql.query("SELECT count(*)::int AS count FROM campaigns");
+console.log(`\nMigration complete. clicks=${count} rows, campaigns=${camps}.`);
