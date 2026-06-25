@@ -12,10 +12,10 @@ import {
   countDistinctMiners,
   clicksByCampaign,
   clicksByMiner,
-  minerClicksByCampaign,
-  countMinerClicks,
   getRecentClicks,
+  type Click,
 } from "./clicks";
+import { passesFilter } from "./signals";
 import { listCampaigns, type Campaign } from "./campaigns";
 
 export type CampaignStat = Campaign & { clicks: number; miners: number };
@@ -59,12 +59,36 @@ export async function getTopMiners(limit = 50): Promise<MinerStat[]> {
   return clicksByMiner(limit);
 }
 
+export type MinerCampaignRow = { campaign: string; total: number; qualified: number };
+export type RecentClick = Click & { qualified: boolean };
+
 // Everything one miner needs to see on their own dashboard.
+//
+// "total" = every recorded click; "qualified" = passed the public fingerprint /
+// bot pre-filter (see passesFilter). Both are computed from the same loaded set
+// so the two numbers are always consistent with each other. Capped at 5000 rows
+// (paginate later if a miner ever exceeds it).
 export async function getMinerSummary(miner: string) {
-  const [totalClicks, perCampaign, recent] = await Promise.all([
-    countMinerClicks(miner),
-    minerClicksByCampaign(miner),
-    getRecentClicks({ miner, limit: 50 }),
-  ]);
-  return { miner, totalClicks, perCampaign, recent };
+  const clicks = await getRecentClicks({ miner, limit: 5000 });
+
+  const byCampaign = new Map<string, MinerCampaignRow>();
+  let qualifiedTotal = 0;
+  for (const c of clicks) {
+    const row =
+      byCampaign.get(c.campaign) || { campaign: c.campaign, total: 0, qualified: 0 };
+    row.total++;
+    if (passesFilter(c)) {
+      row.qualified++;
+      qualifiedTotal++;
+    }
+    byCampaign.set(c.campaign, row);
+  }
+
+  return {
+    miner,
+    totalClicks: clicks.length,
+    qualifiedClicks: qualifiedTotal,
+    perCampaign: [...byCampaign.values()].sort((a, b) => b.total - a.total),
+    recent: clicks.slice(0, 50).map((c) => ({ ...c, qualified: passesFilter(c) })),
+  };
 }

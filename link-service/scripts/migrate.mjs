@@ -4,6 +4,17 @@
 //
 // Idempotent — safe to run repeatedly (CREATE ... IF NOT EXISTS). Run again
 // against production after setting DATABASE_URL to the prod connection string.
+//
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ DATA SAFETY — READ BEFORE EDITING                                         │
+// │ This database holds real miner accounts and click history. NEVER add a    │
+// │ destructive statement here: no DROP TABLE, no TRUNCATE, no DELETE, no      │
+// │ ALTER ... DROP COLUMN. Migrations must only ADD (CREATE TABLE/INDEX IF    │
+// │ NOT EXISTS, ADD COLUMN). To change a column, add a new one and backfill.  │
+// │ An independent append-only backup runs every 5 min to /Volumes/External   │
+// │ (see ~/byzantium-backup/) — but that is a safety net, not a licence to    │
+// │ run destructive SQL.                                                      │
+// └─────────────────────────────────────────────────────────────────────────┘
 
 import { neon } from "@neondatabase/serverless";
 

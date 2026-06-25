@@ -194,7 +194,9 @@ export default async function AdminPage() {
             <tbody>
               {topMiners.map((m) => (
                 <tr key={m.miner}>
-                  <td className="mono">{m.miner}</td>
+                  <td className="mono">
+                    <a href={`/admin/miners/${m.miner}`}>{m.miner}</a>
+                  </td>
                   <td className="right">{m.campaigns}</td>
                   <td className="right">
                     <strong>{m.clicks.toLocaleString()}</strong>

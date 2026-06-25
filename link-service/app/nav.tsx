@@ -5,7 +5,7 @@ export function Nav({
   active,
   session,
 }: {
-  active: "overview" | "miner" | "admin";
+  active: "overview" | "miner" | "admin" | "miners";
   session?: Session | null;
 }) {
   return (
@@ -21,9 +21,14 @@ export function Nav({
           </a>
         )}
         {session?.kind === "admin" && (
-          <a href="/admin" className={active === "admin" ? "active" : ""}>
-            Admin
-          </a>
+          <>
+            <a href="/admin" className={active === "admin" ? "active" : ""}>
+              Admin
+            </a>
+            <a href="/admin/miners" className={active === "miners" ? "active" : ""}>
+              Miners
+            </a>
+          </>
         )}
         {session ? (
           <a href="/logout">Sign out</a>

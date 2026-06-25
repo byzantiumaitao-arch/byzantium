@@ -51,17 +51,29 @@ export default async function MinerPage() {
 
       <div className="grid">
         <div className="card stat">
-          <div className="num gold">{m.totalClicks.toLocaleString()}</div>
-          <div className="lbl">Your total clicks</div>
+          <div className="num">{m.totalClicks.toLocaleString()}</div>
+          <div className="lbl">Total clicks</div>
+        </div>
+        <div className="card stat">
+          <div className="num gold">{m.qualifiedClicks.toLocaleString()}</div>
+          <div className="lbl">Qualified clicks</div>
         </div>
         <div className="card stat">
           <div className="num">{m.perCampaign.length}</div>
-          <div className="lbl">Campaigns you&rsquo;ve driven</div>
+          <div className="lbl">Campaigns driven</div>
         </div>
         <div className="card stat">
           <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
           <div className="lbl">Verified socials</div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14, fontSize: 14, lineHeight: 1.65 }}>
+        <strong>Total clicks</strong> = every visit to your links.{" "}
+        <strong style={{ color: "var(--gold)" }}>Qualified clicks</strong> = visits that passed
+        our automated bot &amp; device check — the visitor&rsquo;s real browser completed a quick
+        verification, so it looks like a genuine person. Only qualified clicks count toward
+        rewards, and final payouts apply a deeper authenticity check on top of this.
       </div>
 
       <h2>Linked socials</h2>
@@ -107,14 +119,20 @@ export default async function MinerPage() {
             <thead>
               <tr>
                 <th>Campaign</th>
-                <th className="right">Clicks</th>
+                <th className="right">Total</th>
+                <th className="right">Qualified</th>
               </tr>
             </thead>
             <tbody>
               {m.perCampaign.map((row) => (
                 <tr key={row.campaign}>
                   <td className="mono">/{row.campaign}</td>
-                  <td className="right"><strong>{row.count.toLocaleString()}</strong></td>
+                  <td className="right muted">{row.total.toLocaleString()}</td>
+                  <td className="right">
+                    <strong style={{ color: "var(--gold)" }}>
+                      {row.qualified.toLocaleString()}
+                    </strong>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -133,6 +151,7 @@ export default async function MinerPage() {
                 <th>When</th>
                 <th>Campaign</th>
                 <th>Referer</th>
+                <th className="right">Counts?</th>
               </tr>
             </thead>
             <tbody>
@@ -142,6 +161,13 @@ export default async function MinerPage() {
                   <td className="mono">/{k.campaign}</td>
                   <td className="muted">
                     {k.referer ? k.referer.replace(/^https?:\/\//, "") : "direct"}
+                  </td>
+                  <td className="right">
+                    {k.qualified ? (
+                      <span className="pill on">qualified</span>
+                    ) : (
+                      <span className="pill off">filtered</span>
+                    )}
                   </td>
                 </tr>
               ))}

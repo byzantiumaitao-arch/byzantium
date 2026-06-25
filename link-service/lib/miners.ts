@@ -106,6 +106,29 @@ export async function getMinerById(id: number): Promise<Miner | null> {
   return (rows[0] as Miner) || null;
 }
 
+export async function getMinerByHandle(handle: string): Promise<Miner | null> {
+  const rows = await sql`
+    SELECT id, handle, email, display_name, status, created_at
+    FROM miners WHERE handle = ${handle.trim().toLowerCase()}
+  `;
+  return (rows[0] as Miner) || null;
+}
+
+export type MinerListRow = Miner & { clicks: number; verified_socials: number };
+
+// All registered miner accounts, with quick aggregates for the admin list.
+export async function listMiners(): Promise<MinerListRow[]> {
+  const rows = await sql`
+    SELECT m.id, m.handle, m.email, m.display_name, m.status, m.created_at,
+      (SELECT count(*)::int FROM clicks c WHERE c.miner = m.handle) AS clicks,
+      (SELECT count(*)::int FROM miner_socials s
+         WHERE s.miner_id = m.id AND s.status = 'verified') AS verified_socials
+    FROM miners m
+    ORDER BY clicks DESC, m.created_at DESC
+  `;
+  return rows as any;
+}
+
 export async function getSocials(minerId: number): Promise<Social[]> {
   const rows = await sql`
     SELECT id, miner_id, platform, handle, code, post_url, status, verified_at
