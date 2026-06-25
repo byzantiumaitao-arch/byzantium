@@ -5,7 +5,7 @@ export function Nav({
   active,
   session,
 }: {
-  active: "overview" | "miner" | "admin" | "miners" | "campaigns";
+  active: "overview" | "miner" | "admin" | "miners" | "campaigns" | "fingerprints";
   session?: Session | null;
 }) {
   return (
@@ -30,6 +30,9 @@ export function Nav({
             </a>
             <a href="/admin/campaigns" className={active === "campaigns" ? "active" : ""}>
               Campaigns
+            </a>
+            <a href="/admin/fingerprints" className={active === "fingerprints" ? "active" : ""}>
+              Fingerprints
             </a>
           </>
         )}

@@ -1,11 +1,14 @@
 import { redirect, notFound } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getMinerByHandle, getSocials, type Social } from "@/lib/miners";
-import { getMinerSummary } from "@/lib/stats";
+import { getMinerAdminCharts } from "@/lib/stats";
 import { clickFlags, HARD_FLAGS } from "@/lib/signals";
 import { Nav } from "../../../nav";
+import { SplitBars, ActivityChart } from "../../charts";
 
-// Admin → one miner's full detail: account, linked socials, click quality.
+// Admin → one miner's full detail: account, socials, click quality (graphs),
+// and raw clicks with bot flags. Unlike the miner's own view, the qualified /
+// filtered split is shown live and per-period.
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +31,9 @@ export default async function MinerDetailPage({
   const miner = await getMinerByHandle(params.handle);
   if (!miner) notFound();
 
-  const [socials, summary] = await Promise.all([
+  const [socials, charts] = await Promise.all([
     getSocials(miner.id),
-    getMinerSummary(miner.handle),
+    getMinerAdminCharts(miner.handle),
   ]);
 
   return (
@@ -52,12 +55,12 @@ export default async function MinerDetailPage({
 
       <div className="grid">
         <div className="card stat">
-          <div className="num">{summary.totalClicks.toLocaleString()}</div>
+          <div className="num">{charts.total.toLocaleString()}</div>
           <div className="lbl">Total clicks</div>
         </div>
         <div className="card stat">
-          <div className="num gold">{summary.qualifiedClicks.toLocaleString()}</div>
-          <div className="lbl">Qualified clicks</div>
+          <div className="num gold">{charts.qualified.toLocaleString()}</div>
+          <div className="lbl">Qualified (live)</div>
         </div>
         <div className="card stat">
           <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
@@ -100,32 +103,18 @@ export default async function MinerDetailPage({
       </div>
 
       <h2>Clicks by campaign</h2>
-      <div className="card" style={{ padding: 0 }}>
-        {summary.perCampaign.length === 0 ? (
-          <div className="empty">No clicks yet.</div>
-        ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Campaign</th>
-                <th className="right">Total clicks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.perCampaign.map((row) => (
-                <tr key={row.campaign}>
-                  <td className="mono">/{row.campaign}</td>
-                  <td className="right"><strong>{row.total.toLocaleString()}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className="card">
+        <SplitBars rows={charts.perCampaign.map((r) => ({ label: `/${r.campaign}`, total: r.total, qualified: r.qualified }))} />
+      </div>
+
+      <h2>Activity (last 14 days)</h2>
+      <div className="card">
+        {charts.total === 0 ? <div className="empty">No clicks yet.</div> : <ActivityChart daily={charts.daily} />}
       </div>
 
       <h2>Recent clicks</h2>
       <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-        {summary.recent.length === 0 ? (
+        {charts.recent.length === 0 ? (
           <div className="empty">No clicks yet.</div>
         ) : (
           <table className="table">
@@ -138,7 +127,7 @@ export default async function MinerDetailPage({
               </tr>
             </thead>
             <tbody>
-              {summary.recent.map((k, i) => {
+              {charts.recent.map((k, i) => {
                 const flags = clickFlags(k);
                 return (
                   <tr key={i}>

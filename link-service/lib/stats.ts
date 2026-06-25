@@ -118,3 +118,83 @@ export async function getMinerSummary(miner: string) {
     recent: clicks.slice(0, 50), // shown without any qualified/filtered label
   };
 }
+
+// ---- Admin chart data ----
+//
+// Admin views see qualified vs total LIVE (no review delay) and per-period — they
+// are the operator and need full detail to spot gaming. (The miner-facing summary
+// above deliberately hides all of this.)
+
+export type DayFull = { day: string; total: number; qualified: number };
+export type CampaignSplit = { campaign: string; total: number; qualified: number };
+export type MinerSplit = { miner: string; total: number; qualified: number };
+
+function dailyFull(clicks: Click[], days = 14): DayFull[] {
+  const today = new Date();
+  const keys: string[] = [];
+  const map = new Map<string, DayFull>();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    keys.push(key);
+    map.set(key, { day: key, total: 0, qualified: 0 });
+  }
+  for (const c of clicks) {
+    const b = map.get(c.ts.slice(0, 10));
+    if (b) {
+      b.total++;
+      if (passesFilter(c)) b.qualified++;
+    }
+  }
+  return keys.map((k) => map.get(k)!);
+}
+
+// One miner, for the admin detail page: live qualified + per-campaign + per-day.
+export async function getMinerAdminCharts(miner: string) {
+  const clicks = await getRecentClicks({ miner, limit: 5000 });
+  const byCampaign = new Map<string, CampaignSplit>();
+  let total = 0;
+  let qualified = 0;
+  for (const c of clicks) {
+    const r = byCampaign.get(c.campaign) || { campaign: c.campaign, total: 0, qualified: 0 };
+    r.total++;
+    total++;
+    if (passesFilter(c)) {
+      r.qualified++;
+      qualified++;
+    }
+    byCampaign.set(c.campaign, r);
+  }
+  return {
+    total,
+    qualified,
+    perCampaign: [...byCampaign.values()].sort((a, b) => b.total - a.total),
+    daily: dailyFull(clicks, 14),
+    recent: clicks.slice(0, 80),
+  };
+}
+
+// One campaign, for the admin detail page: live qualified + per-day + top miners.
+export async function getCampaignCharts(slug: string) {
+  const clicks = await getRecentClicks({ campaign: slug, limit: 5000 });
+  const byMiner = new Map<string, MinerSplit>();
+  let total = 0;
+  let qualified = 0;
+  for (const c of clicks) {
+    total++;
+    const q = passesFilter(c);
+    if (q) qualified++;
+    const r = byMiner.get(c.miner) || { miner: c.miner, total: 0, qualified: 0 };
+    r.total++;
+    if (q) r.qualified++;
+    byMiner.set(c.miner, r);
+  }
+  return {
+    total,
+    qualified,
+    miners: byMiner.size,
+    daily: dailyFull(clicks, 14),
+    topMiners: [...byMiner.values()].sort((a, b) => b.total - a.total).slice(0, 20),
+  };
+}

@@ -283,3 +283,49 @@ export async function velocityFingerprints(
     };
   });
 }
+
+export type FingerprintRow = {
+  fingerprint: string;
+  clicks: number;
+  miners: number;
+  ips: number;
+  campaigns: number;
+  first: string;
+  last: string;
+};
+
+// Every collected fingerprint (most active first) — the browsable list for the
+// admin Fingerprints tab. Unlike fingerprintClusters() this is NOT filtered to
+// the suspicious ones; it's the full roster.
+export async function listFingerprints(limit = 200): Promise<FingerprintRow[]> {
+  const rows = await sql`
+    SELECT fingerprint,
+           count(*)::int                 AS clicks,
+           count(DISTINCT miner)::int     AS miners,
+           count(DISTINCT ip)::int        AS ips,
+           count(DISTINCT campaign)::int  AS campaigns,
+           min(ts) AS first, max(ts) AS last
+    FROM clicks
+    WHERE fingerprint IS NOT NULL
+    GROUP BY fingerprint
+    ORDER BY count(*) DESC, max(ts) DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((r: any) => ({
+    fingerprint: r.fingerprint,
+    clicks: r.clicks,
+    miners: r.miners,
+    ips: r.ips,
+    campaigns: r.campaigns,
+    first: toIso(r.first),
+    last: toIso(r.last),
+  }));
+}
+
+// All clicks belonging to one fingerprint (newest first) — for the detail view.
+export async function clicksForFingerprint(fp: string, limit = 200): Promise<Click[]> {
+  const rows = await sql`
+    SELECT * FROM clicks WHERE fingerprint = ${fp} ORDER BY ts DESC LIMIT ${limit}
+  `;
+  return rows.map(toClick);
+}

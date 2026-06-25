@@ -66,7 +66,9 @@ export default async function CampaignsPage({
             <tbody>
               {campaigns.map((c) => (
                 <tr key={c.slug}>
-                  <td className="mono">/{c.slug}</td>
+                  <td className="mono">
+                    <a href={`/admin/campaigns/${c.slug}`}>/{c.slug}</a>
+                  </td>
                   <td>{c.name}</td>
                   <td className="mono muted">{c.destination.replace(/^https?:\/\//, "")}</td>
                   <td>
