@@ -52,6 +52,15 @@ const statements = [
   `CREATE INDEX IF NOT EXISTS clicks_fingerprint_idx ON clicks (fingerprint)`,
   `CREATE INDEX IF NOT EXISTS clicks_visitor_idx     ON clicks (visitor_id)`,
 
+  // Per-click authenticity score, written by the PRIVATE scoring service (not in
+  // this repo). authenticity_score ∈ [0,1]; scored_at stamps when it was set.
+  // The public validator feed (/api/validator/*) only ever reads these — it never
+  // computes them. A NULL score = not yet judged. We never expose the raw signals
+  // that produced the score, only the score itself, and only after a settle delay.
+  `ALTER TABLE clicks ADD COLUMN IF NOT EXISTS authenticity_score REAL`,
+  `ALTER TABLE clicks ADD COLUMN IF NOT EXISTS scored_at TIMESTAMPTZ`,
+  `CREATE INDEX IF NOT EXISTS clicks_scored_at_idx ON clicks (scored_at)`,
+
   // Miner accounts. handle is the link slug (/<handle>/<campaign>).
   `CREATE TABLE IF NOT EXISTS miners (
      id            BIGSERIAL PRIMARY KEY,
