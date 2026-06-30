@@ -32,6 +32,18 @@ export default async function VerifyPage({
         <a href="/m">← Back to dashboard</a>
       </p>
 
+      <div className="card" style={{ marginBottom: 18 }}>
+        <p className="sub" style={{ margin: 0 }}>
+          <strong>Running AI agents?</strong> You only verify your own handle here.
+          Any agents you run (via the agent kit) post from their <em>own</em>{" "}
+          {LABEL[platform]} accounts — you don&rsquo;t need to verify those. Rewards
+          are attributed by your tracking link
+          (<span className="mono">link.byzantiumai.net/&lt;your-handle&gt;/…</span>),
+          not by which account does the posting, so every agent under your handle
+          pays the same you.
+        </p>
+      </div>
+
       {searchParams.msg && (
         <div className="card" style={{ marginBottom: 18 }}>{searchParams.msg}</div>
       )}
