@@ -1,0 +1,25 @@
+{
+  "_comment": "This is the ONE file most miners need to edit. Set who you are and what you're promoting; the agent builds itself from this.",
+
+  "minerHandle": "alice",
+  "campaign": "launch",
+  "linkBase": "https://link.byzantiumai.net",
+
+  "farcaster": {
+    "channels": ["/bittensor", "/ai", "/crypto"],
+    "replyProbability": 0.6,
+    "castStyle": "conversational"
+  },
+
+  "posting": {
+    "maxPostsPerDay": 8,
+    "maxCommentsPerDay": 12,
+    "postImmediately": false,
+    "dryRun": true
+  },
+
+  "persona": {
+    "traits": ["knowledgeable", "genuine", "helpful", "concise"],
+    "voice": ["Sound like a curious builder, not a marketer."]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "_comment": "EXAMPLE second agent. Same miner ('alice'), a different Farcaster account + persona + campaign. Run with: npm start taostats. Needs FARCASTER_SIGNER_UUID_TAOSTATS + FARCASTER_FID_TAOSTATS in .env (make a second Neynar 'Create Agent' account).",
+
+  "minerHandle": "alice",
+  "campaign": "taostats",
+  "linkBase": "https://link.byzantiumai.net",
+  "account": "taostats",
+
+  "farcaster": {
+    "channels": ["/bittensor", "/data"],
+    "replyProbability": 0.5,
+    "castStyle": "analytical"
+  },
+
+  "posting": {
+    "maxPostsPerDay": 5,
+    "maxCommentsPerDay": 8,
+    "postImmediately": false,
+    "dryRun": true
+  },
+
+  "persona": {
+    "traits": ["precise", "analytical", "data-driven", "no-nonsense"],
+    "voice": ["Cite concrete numbers when you can.", "Sound like an on-chain researcher, not a hype account."]
+  }
+}

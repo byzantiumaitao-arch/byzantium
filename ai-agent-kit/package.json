@@ -1,0 +1,30 @@
+{
+  "name": "byzantium-ai-agent-kit",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted Byzantium miner agent. An ElizaOS agent that advertises your tracking link on Farcaster (posts + replies) to earn genuine clicks.",
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "check": "tsx src/preflight.ts",
+    "agents": "tsx src/agents-list.ts",
+    "build:character": "tsx src/build-character.ts",
+    "start": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "@elizaos/cli": "^1.7.2",
+    "@elizaos/core": "^1.7.2",
+    "@elizaos/plugin-anthropic": "^1.5.12",
+    "@elizaos/plugin-openai": "^1.6.0",
+    "@elizaos/plugin-bootstrap": "^1.7.2",
+    "@elizaos/plugin-farcaster": "^1.7.2",
+    "@elizaos/plugin-sql": "^1.7.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

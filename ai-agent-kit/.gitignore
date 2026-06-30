@@ -1,0 +1,12 @@
+node_modules/
+.env
+.eliza/
+.elizadb/
+*.log
+dist/
+
+character.json
+.characters/
+start.log
+run.log
+*.tsbuildinfo
