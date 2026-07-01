@@ -52,8 +52,8 @@ spam replies.
   your app's **Agents** tab, click **Create Agent** to get a Farcaster account
   (FID) + signer with no phone needed — or **Use existing account** to connect
   your own.
-- An **LLM key** — **OpenAI or Anthropic** (the agent's brain). One is enough; the
-  kit auto-detects which.
+- An **LLM key** — e.g. **OpenAI** (or another provider your ElizaOS build
+  supports). The agent's brain; one key is enough and the kit auto-detects it.
 
 > New here? The [running guide](GUIDE.md) explains personality, campaigns, rate
 > limits, and going live in more depth.

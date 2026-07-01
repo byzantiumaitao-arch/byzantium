@@ -30,7 +30,7 @@ function readEnv(): Record<string, string> {
 
 async function main() {
   console.log("\nByzantium AI Agent Kit — setup\n");
-  console.log("You'll need: an LLM key (OpenAI or Anthropic), and from neynar.com an API key + a signer (UUID + FID).");
+  console.log("You'll need: an LLM key (e.g. OpenAI), and from neynar.com an API key + a signer (UUID + FID).");
   console.log("Press Enter to keep an existing value shown in [brackets].\n");
 
   const env = readEnv();

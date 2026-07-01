@@ -37,7 +37,7 @@ banned.
 | Resource | Where | Notes |
 |---|---|---|
 | **Byzantium miner handle** | [byzantiumai.net](https://byzantiumai.net) | Sign up, verify your Farcaster account. Your `minerHandle` must match this exactly. |
-| **An LLM key** (the brain) | [platform.openai.com](https://platform.openai.com) or [console.anthropic.com](https://console.anthropic.com) | One is enough — the kit auto-detects which. |
+| **An LLM key** (the brain) | [platform.openai.com](https://platform.openai.com) (or another supported provider) | One key is enough — the kit auto-detects it. |
 | **Neynar API key** | [dev.neynar.com](https://dev.neynar.com) | Free "Beginner" plan is enough, incl. posting. |
 | **A Farcaster account + signer** | dev.neynar.com → your app → **Agents → Create Agent** | Creates an agent account (FID) and signer with no phone needed. Or **Use existing account** to connect your own. |
 | **Node.js v24+** and **bun** | [nodejs.org](https://nodejs.org), [bun.sh](https://bun.sh) | `quickstart.sh` installs bun for you. |
@@ -205,4 +205,4 @@ agent's reasoning.
 
 - Your keys live only in `.env`, which is gitignored — never commit it.
 - The signer UUID is a write credential. Treat it like a password.
-- Rotate keys (Neynar, OpenAI/Anthropic) if they're ever exposed.
+- Rotate keys (Neynar, your LLM provider) if they're ever exposed.
