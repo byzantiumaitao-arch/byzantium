@@ -6,12 +6,14 @@
 
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { sql } from "./db";
+import { isValidBittensorAddress } from "./wallet";
 
 export type Miner = {
   id: number;
   handle: string;
   email: string;
   display_name: string | null;
+  hotkey: string | null; // Bittensor SS58 payout address
   status: string;
   created_at: string;
 };
@@ -56,10 +58,12 @@ export async function createMiner(input: {
   handle: string;
   email: string;
   password: string;
+  hotkey?: string; // optional at signup — collected after, on the dashboard
   displayName?: string;
 }): Promise<Miner> {
   const handle = input.handle.trim().toLowerCase();
   const email = input.email.trim().toLowerCase();
+  const hotkey = (input.hotkey || "").trim();
 
   if (!isValidHandle(handle)) {
     throw new SignupError("Handle must be 2–32 chars: letters, numbers, - or _.");
@@ -70,12 +74,19 @@ export async function createMiner(input: {
   if (input.password.length < 8) {
     throw new SignupError("Password must be at least 8 characters.");
   }
+  // If a hotkey is supplied here, format-check it (off-chain, see lib/wallet.ts).
+  // Otherwise it's collected later on the dashboard (setHotkey).
+  if (hotkey && !isValidBittensorAddress(hotkey)) {
+    throw new SignupError(
+      "Enter a valid Bittensor hotkey — it starts with “5” and is about 48 characters."
+    );
+  }
 
   try {
     const rows = await sql`
-      INSERT INTO miners (handle, email, password_hash, display_name)
-      VALUES (${handle}, ${email}, ${hashPassword(input.password)}, ${input.displayName || null})
-      RETURNING id, handle, email, display_name, status, created_at
+      INSERT INTO miners (handle, email, password_hash, display_name, hotkey)
+      VALUES (${handle}, ${email}, ${hashPassword(input.password)}, ${input.displayName || null}, ${hotkey || null})
+      RETURNING id, handle, email, display_name, hotkey, status, created_at
     `;
     return rows[0] as Miner;
   } catch (e: any) {
@@ -90,7 +101,7 @@ export async function createMiner(input: {
 
 export async function authenticate(email: string, password: string): Promise<Miner | null> {
   const rows = await sql`
-    SELECT id, handle, email, password_hash, display_name, status, created_at
+    SELECT id, handle, email, password_hash, display_name, hotkey, status, created_at
     FROM miners WHERE email = ${email.trim().toLowerCase()}
   `;
   const row: any = rows[0];
@@ -101,14 +112,14 @@ export async function authenticate(email: string, password: string): Promise<Min
 
 export async function getMinerById(id: number): Promise<Miner | null> {
   const rows = await sql`
-    SELECT id, handle, email, display_name, status, created_at FROM miners WHERE id = ${id}
+    SELECT id, handle, email, display_name, hotkey, status, created_at FROM miners WHERE id = ${id}
   `;
   return (rows[0] as Miner) || null;
 }
 
 export async function getMinerByHandle(handle: string): Promise<Miner | null> {
   const rows = await sql`
-    SELECT id, handle, email, display_name, status, created_at
+    SELECT id, handle, email, display_name, hotkey, status, created_at
     FROM miners WHERE handle = ${handle.trim().toLowerCase()}
   `;
   return (rows[0] as Miner) || null;
@@ -119,7 +130,7 @@ export type MinerListRow = Miner & { clicks: number; verified_socials: number };
 // All registered miner accounts, with quick aggregates for the admin list.
 export async function listMiners(): Promise<MinerListRow[]> {
   const rows = await sql`
-    SELECT m.id, m.handle, m.email, m.display_name, m.status, m.created_at,
+    SELECT m.id, m.handle, m.email, m.display_name, m.hotkey, m.status, m.created_at,
       (SELECT count(*)::int FROM clicks c WHERE c.miner = m.handle) AS clicks,
       (SELECT count(*)::int FROM miner_socials s
          WHERE s.miner_id = m.id AND s.status = 'verified') AS verified_socials
@@ -135,4 +146,25 @@ export async function getSocials(minerId: number): Promise<Social[]> {
     FROM miner_socials WHERE miner_id = ${minerId} ORDER BY platform
   `;
   return rows as any;
+}
+
+// Update a miner's payout hotkey (validated, format-only). Used from the miner
+// dashboard so existing accounts (and anyone changing keys) can set it.
+export async function setHotkey(minerId: number, hotkey: string): Promise<void> {
+  const hk = hotkey.trim();
+  if (!isValidBittensorAddress(hk)) {
+    throw new SignupError(
+      "Enter a valid Bittensor hotkey — it starts with “5” and is about 48 characters."
+    );
+  }
+  await sql`UPDATE miners SET hotkey = ${hk} WHERE id = ${minerId}`;
+}
+
+// handle → hotkey (nullable). Lets the validator feed map each miner's clicks to
+// the payout address without exposing anything else about the account.
+export async function hotkeysByHandle(): Promise<Record<string, string | null>> {
+  const rows = await sql`SELECT handle, hotkey FROM miners`;
+  const out: Record<string, string | null> = {};
+  for (const r of rows as any[]) out[r.handle] = r.hotkey ?? null;
+  return out;
 }

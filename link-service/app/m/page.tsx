@@ -5,9 +5,10 @@ import { getMinerSummary } from "@/lib/stats";
 import { listCampaigns } from "@/lib/campaigns";
 import { Nav } from "../nav";
 import { LinkBuilder } from "./LinkBuilder";
+import { updateHotkey } from "./actions";
 
 // Miner dashboard — for the logged-in miner account. Shows their clicks, a link
-// builder, and their linked/verified social handles.
+// builder, their payout address, and their linked/verified social handles.
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,11 @@ function socialPill(s?: Social) {
   return <span className="pill off">rejected</span>;
 }
 
-export default async function MinerPage() {
+export default async function MinerPage({
+  searchParams,
+}: {
+  searchParams: { error?: string; saved?: string };
+}) {
   const session = getSession();
   if (session?.kind !== "miner") redirect("/login");
 
@@ -80,6 +85,47 @@ export default async function MinerPage() {
           <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
           <div className="lbl">Verified socials</div>
         </div>
+      </div>
+
+      <h2>Payout address</h2>
+      <div className="card" style={{ marginBottom: 16 }}>
+        {searchParams.saved && (
+          <div className="pill on" style={{ marginBottom: 10 }}>Saved ✓</div>
+        )}
+        {searchParams.error && <div className="error">{searchParams.error}</div>}
+        {miner.hotkey ? (
+          <p style={{ marginTop: 0 }}>
+            Rewards are paid to <span className="mono">{miner.hotkey}</span>.
+          </p>
+        ) : (
+          <p style={{ marginTop: 0, color: "var(--gold)" }}>
+            You haven’t set a payout address yet — add your Bittensor hotkey so you can
+            receive rewards.
+          </p>
+        )}
+        <form action={updateHotkey} style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <input
+            className="input mono"
+            name="hotkey"
+            defaultValue={miner.hotkey ?? ""}
+            placeholder="5F… your SN76 hotkey"
+            pattern="5[1-9A-HJ-NP-Za-km-z]{46,48}"
+            spellCheck={false}
+            autoCapitalize="none"
+            autoComplete="off"
+            required
+            style={{ flex: 1 }}
+          />
+          <button className="btn sm" type="submit">{miner.hotkey ? "Update" : "Save"}</button>
+        </form>
+        <p className="sub" style={{ marginTop: 10, marginBottom: 0, fontSize: 12.5, lineHeight: 1.65 }}>
+          Paste your hotkey from <span className="mono">btcli wallet list</span>. We check the
+          format, not the chain — so make sure it’s the right key.
+          <br />
+          <strong>Don’t forget:</strong> you also need to register this hotkey on the Byzantium
+          subnet — run <span className="mono">btcli subnets register --netuid 76</span> — before
+          rewards can actually reach it. You can collect clicks now and register when you’re ready.
+        </p>
       </div>
 
       <h2>Linked socials</h2>

@@ -14,7 +14,8 @@ export default function SignupPage({
       <form className="login card" action={signup}>
         <h1 style={{ marginBottom: 6 }}>Become a miner</h1>
         <p className="sub" style={{ marginBottom: 22 }}>
-          Create an account to get your tracking links and verify your socials.
+          Create an account to get your tracking links. You’ll add your payout wallet
+          right after — you can start collecting clicks before it’s set.
         </p>
 
         {searchParams.error && <div className="error">{searchParams.error}</div>}

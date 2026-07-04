@@ -71,6 +71,11 @@ const statements = [
      status        TEXT        NOT NULL DEFAULT 'active',
      created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
    )`,
+  // Bittensor hotkey (SS58 payout address) the miner pastes at signup. Nullable
+  // so pre-existing accounts aren't broken; new signups require it. Rewards are
+  // paid direct to this key by on-chain weight (handle → hotkey → UID).
+  `ALTER TABLE miners ADD COLUMN IF NOT EXISTS hotkey TEXT`,
+
   // Linked social handles, verified by proof-of-post.
   `CREATE TABLE IF NOT EXISTS miner_socials (
      id          BIGSERIAL PRIMARY KEY,
