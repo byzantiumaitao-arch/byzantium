@@ -52,6 +52,14 @@ export default async function MinerDetailPage({
         <a href="/admin/miners">← All miners</a> · {miner.email} · joined{" "}
         {new Date(miner.created_at).toLocaleDateString()}
       </p>
+      <p className="sub" style={{ marginTop: -6 }}>
+        Payout address:{" "}
+        {miner.hotkey ? (
+          <span className="mono">{miner.hotkey}</span>
+        ) : (
+          <span className="muted">not set yet</span>
+        )}
+      </p>
 
       <div className="grid">
         <div className="card stat">

@@ -30,6 +30,7 @@ export default async function MinersPage() {
                 <th>Handle</th>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Payout address</th>
                 <th className="right">Verified socials</th>
                 <th className="right">Clicks</th>
                 <th>Joined</th>
@@ -43,6 +44,15 @@ export default async function MinersPage() {
                   </td>
                   <td>{m.display_name || <span className="muted">—</span>}</td>
                   <td className="muted">{m.email}</td>
+                  <td className="mono" style={{ fontSize: 12.5 }}>
+                    {m.hotkey ? (
+                      <span title={m.hotkey}>
+                        {m.hotkey.slice(0, 6)}…{m.hotkey.slice(-6)}
+                      </span>
+                    ) : (
+                      <span className="muted">not set</span>
+                    )}
+                  </td>
                   <td className="right">
                     {m.verified_socials > 0 ? (
                       <span className="pill on">{m.verified_socials}</span>
