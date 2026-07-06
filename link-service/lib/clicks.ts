@@ -43,9 +43,11 @@ export async function logClick(
   return row.id as number;
 }
 
-// Attach device/behaviour signals to an already-logged click. Best-effort: the
-// id comes from the client, so treat the data as untrusted raw signal (the
-// authenticity scorer, which lives elsewhere, decides what to trust).
+// Attach device/behaviour signals to an already-logged click, and return the
+// merged row as a Click. Best-effort: the id comes from the client, so treat the
+// data as untrusted raw signal (the authenticity scorer, which lives elsewhere,
+// decides what to trust). Returning the row lets the caller score it without a
+// second SELECT — one UPDATE ... RETURNING instead of UPDATE + SELECT.
 export async function enrichClick(
   id: number,
   patch: {
@@ -54,15 +56,17 @@ export async function enrichClick(
     in_app?: boolean | null;
     signals?: Record<string, unknown> | null;
   }
-): Promise<void> {
-  await sql`
+): Promise<Click | null> {
+  const rows = await sql`
     UPDATE clicks SET
       fingerprint = COALESCE(${patch.fingerprint ?? null}, fingerprint),
       visitor_id  = COALESCE(${patch.visitor_id ?? null}, visitor_id),
       in_app      = COALESCE(${patch.in_app ?? null}, in_app),
       signals     = ${patch.signals ? JSON.stringify(patch.signals) : null}::jsonb
     WHERE id = ${id}
+    RETURNING *
   `;
+  return rows[0] ? toClick(rows[0]) : null;
 }
 
 // Map a DB row to a Click (ts comes back as a Date; normalise to ISO string).

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enrichClick } from "@/lib/clicks";
-import { scoreClick } from "@/lib/scorer";
+import { scoreEnriched } from "@/lib/scorer";
+import { rateLimited } from "@/lib/ratelimit";
 
 // Receives the device/behaviour signals gathered by the interstitial collector
 // (lib/fingerprint.ts) and attaches them to the already-logged click row.
@@ -11,9 +12,15 @@ import { scoreClick } from "@/lib/scorer";
 // the (separate) authenticity scorer to weigh, not acted on here.
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "iad1"; // co-locate with Neon (us-east-1)
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || null;
+    // Flood backstop: over the per-IP budget, drop the write and still 204 (the
+    // beacon never reads the body). Keeps a single-source flood off Neon.
+    if (rateLimited(ip)) return new NextResponse(null, { status: 204 });
+
     const body = await req.json();
     const id = Number(body?.id);
     if (Number.isInteger(id) && id > 0) {
@@ -23,10 +30,11 @@ export async function POST(req: NextRequest) {
         body.signals && typeof body.signals === "object" ? body.signals : null;
       // in_app is set server-side from the UA at log time; don't let the client
       // override it. enrichClick COALESCEs, so omitting it preserves that value.
-      await enrichClick(id, { fingerprint: fp, visitor_id: vid, signals });
-      // Signals are in — score the click now (v1 scorer, private). Best-effort:
-      // a failure here must never break the beacon response.
-      await scoreClick(id).catch((e) => console.error("scoreClick failed", e));
+      // It returns the merged row, so we score it in one more write — no re-SELECT.
+      const click = await enrichClick(id, { fingerprint: fp, visitor_id: vid, signals });
+      if (click) {
+        await scoreEnriched(id, click).catch((e) => console.error("scoreEnriched failed", e));
+      }
     }
   } catch (err) {
     console.error("collect failed", err);

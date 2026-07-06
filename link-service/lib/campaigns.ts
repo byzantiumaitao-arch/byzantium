@@ -14,13 +14,34 @@ export type Campaign = {
   active: boolean;
 };
 
+// Small in-process cache for the redirect hot path. Campaigns change rarely, so
+// caching the lookup avoids a Neon SELECT on every single click. TTL-bounded, and
+// any admin write (add / activate / pause) clears it so changes take effect at
+// once. Per warm instance — a cache miss just costs one SELECT, never staleness
+// beyond the TTL. Tunable via CAMPAIGN_CACHE_TTL_MS (default 60s).
+const CAMPAIGN_TTL_MS = Number(process.env.CAMPAIGN_CACHE_TTL_MS ?? 60_000);
+const campaignCache = new Map<string, { value: Campaign | null; exp: number }>();
+
+export function clearCampaignCache(): void {
+  campaignCache.clear();
+}
+
 // Returns the campaign if it exists and is active, else null.
 export async function getCampaign(slug: string): Promise<Campaign | null> {
+  const key = slug.toLowerCase();
+  const hit = campaignCache.get(key);
+  if (hit && hit.exp > Date.now()) return hit.value;
+
   const rows = await sql`
     SELECT slug, name, destination, active
-    FROM campaigns WHERE slug = ${slug.toLowerCase()} AND active = true
+    FROM campaigns WHERE slug = ${key} AND active = true
   `;
-  return (rows[0] as Campaign) || null;
+  const value = (rows[0] as Campaign) || null;
+
+  // Bound memory against slug-probing; real campaigns number in the dozens.
+  if (campaignCache.size > 500) campaignCache.clear();
+  campaignCache.set(key, { value, exp: Date.now() + CAMPAIGN_TTL_MS });
+  return value;
 }
 
 // Active campaigns, for the miner link builder and public overview.
@@ -71,8 +92,10 @@ export async function addCampaign(input: {
     }
     throw e;
   }
+  clearCampaignCache();
 }
 
 export async function setCampaignActive(slug: string, active: boolean): Promise<void> {
   await sql`UPDATE campaigns SET active = ${active} WHERE slug = ${slug.toLowerCase()}`;
+  clearCampaignCache();
 }
