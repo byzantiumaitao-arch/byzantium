@@ -8,9 +8,11 @@
 // entirely. This file only READS scores; it never computes them.
 
 import { sql } from "./db";
-import { PUBLIC_REVEAL_DELAY_HOURS } from "./config";
+import { PUBLIC_REVEAL_DELAY_HOURS, WEIGHTS_WINDOW_DAYS } from "./config";
 
 // Settled clicks, ascending by id, for cursor pagination (?since=<last id>).
+// Windowed to the last WEIGHTS_WINDOW_DAYS so the feed exactly mirrors the clicks
+// that weights are computed from (reproducibility: sum this feed → /weights).
 export async function settledClicks(sinceId: number, limit: number) {
   const lim = Math.min(Math.max(limit, 1), 1000);
   return sql`
@@ -19,14 +21,17 @@ export async function settledClicks(sinceId: number, limit: number) {
     WHERE id > ${sinceId}
       AND scored_at IS NOT NULL
       AND scored_at < now() - make_interval(hours => ${PUBLIC_REVEAL_DELAY_HOURS})
+      AND ts > now() - make_interval(days => ${WEIGHTS_WINDOW_DAYS})
     ORDER BY id ASC
     LIMIT ${lim}
   `;
 }
 
-// Per-miner sum of settled authenticity scores — the input to the public weights
-// formula. Mirrors exactly what an auditor gets by summing the clicks feed, so
-// /weights is reproducible from /clicks.
+// Per-miner sum of settled authenticity scores over the last WEIGHTS_WINDOW_DAYS
+// — the input to the public weights formula. A rolling window (not all-time) so
+// weights track recent activity: quiet a few days → weight decays gently; active
+// again → it recovers. Mirrors exactly what an auditor gets by summing the clicks
+// feed, so /weights stays reproducible from /clicks.
 export async function settledMinerScores(): Promise<
   { miner: string; score_sum: number; scored_clicks: number }[]
 > {
@@ -37,6 +42,7 @@ export async function settledMinerScores(): Promise<
     FROM clicks
     WHERE scored_at IS NOT NULL
       AND scored_at < now() - make_interval(hours => ${PUBLIC_REVEAL_DELAY_HOURS})
+      AND ts > now() - make_interval(days => ${WEIGHTS_WINDOW_DAYS})
     GROUP BY miner
   `;
   return rows as any;

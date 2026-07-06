@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enrichClick } from "@/lib/clicks";
+import { scoreClick } from "@/lib/scorer";
 
 // Receives the device/behaviour signals gathered by the interstitial collector
 // (lib/fingerprint.ts) and attaches them to the already-logged click row.
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest) {
       // in_app is set server-side from the UA at log time; don't let the client
       // override it. enrichClick COALESCEs, so omitting it preserves that value.
       await enrichClick(id, { fingerprint: fp, visitor_id: vid, signals });
+      // Signals are in — score the click now (v1 scorer, private). Best-effort:
+      // a failure here must never break the beacon response.
+      await scoreClick(id).catch((e) => console.error("scoreClick failed", e));
     }
   } catch (err) {
     console.error("collect failed", err);
