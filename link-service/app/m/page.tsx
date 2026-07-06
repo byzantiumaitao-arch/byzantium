@@ -99,8 +99,10 @@ export default async function MinerPage({
           </p>
         ) : (
           <p style={{ marginTop: 0, color: "var(--gold)" }}>
-            You haven’t set a payout address yet — add your Bittensor hotkey so you can
-            receive rewards.
+            You haven’t set a payout address yet. You’ll still earn weight from your
+            clicks — but until you add a hotkey, those rewards are sent to a soft-burn
+            wallet (a Byzantium key that’s never sold), not paid to you or shared out to
+            other miners. Add your Bittensor hotkey to start receiving them.
           </p>
         )}
         <form action={updateHotkey} style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -122,9 +124,10 @@ export default async function MinerPage({
           Paste your hotkey from <span className="mono">btcli wallet list</span>. We check the
           format, not the chain — so make sure it’s the right key.
           <br />
-          <strong>Don’t forget:</strong> you also need to register this hotkey on the Byzantium
-          subnet — run <span className="mono">btcli subnets register --netuid 76</span> — before
-          rewards can actually reach it. You can collect clicks now and register when you’re ready.
+          <strong>Don’t forget:</strong> register this hotkey on the Byzantium subnet too — run{" "}
+          <span className="mono">btcli subnets register --netuid 76</span> — so rewards can reach it
+          on-chain. Collect clicks now and set this up whenever you’re ready; whatever you earn before
+          then is soft-burned (never sold), never handed to another miner.
         </p>
       </div>
 
