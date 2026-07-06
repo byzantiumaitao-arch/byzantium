@@ -11,6 +11,7 @@
 // Vercel for production.
 
 import { cookies } from "next/headers";
+import type { NextRequest } from "next/server";
 import crypto from "crypto";
 
 const COOKIE = "byz_session";
@@ -66,4 +67,14 @@ export function endSession(): void {
 export function getSession(): Session | null {
   const c = cookies().get(COOKIE)?.value;
   return c ? readToken(c) : null;
+}
+
+// True if the request is the operator — a logged-in admin session, OR an
+// x-admin-key header matching ADMIN_PASSWORD (for server-to-server tooling like
+// the api-monitor). Used to gate the raw feed and to let admins bypass the
+// public reveal delay for a real-time preview.
+export function isAdminRequest(req: NextRequest): boolean {
+  if (getSession()?.kind === "admin") return true;
+  const key = req.headers.get("x-admin-key");
+  return !!key && checkAdminPassword(key);
 }

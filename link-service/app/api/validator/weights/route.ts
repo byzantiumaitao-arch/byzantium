@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { settledMinerScores } from "@/lib/publicfeed";
 import { computeWeights } from "@/lib/weights";
 import { hotkeysByHandle } from "@/lib/miners";
+import { isAdminRequest } from "@/lib/auth";
 import { PUBLIC_REVEAL_DELAY_HOURS, BURN_HOTKEY } from "@/lib/config";
 
 // GET /api/validator/weights
@@ -18,8 +19,16 @@ import { PUBLIC_REVEAL_DELAY_HOURS, BURN_HOTKEY } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const rows = await settledMinerScores();
+export async function GET(req: NextRequest) {
+  // Admins may preview at a shorter delay (?delay=0 = live, real-time). Public
+  // callers always get the full reveal delay, whatever the param says.
+  const dParam = req.nextUrl.searchParams.get("delay");
+  const delay =
+    isAdminRequest(req) && dParam !== null && Number.isFinite(Number(dParam))
+      ? Math.max(0, Number(dParam))
+      : PUBLIC_REVEAL_DELAY_HOURS;
+
+  const rows = await settledMinerScores(delay);
   const hotkeys = await hotkeysByHandle();
 
   // Every miner keeps its name and its own share. A miner with a payout hotkey is
@@ -38,7 +47,8 @@ export async function GET() {
 
   return NextResponse.json({
     generated_at: new Date().toISOString(),
-    reveal_delay_hours: PUBLIC_REVEAL_DELAY_HOURS,
+    reveal_delay_hours: delay,
+    realtime: delay !== PUBLIC_REVEAL_DELAY_HOURS,
     formula: "weight = miner_score_sum / Σ score_sum over settled clicks",
     burn_note:
       "rows with burn:true have no payout hotkey — their weight is not redistributed; it routes to the burn hotkey (BURN_HOTKEY). A weight-copy validator should sum all burn:true rows onto that single hotkey.",

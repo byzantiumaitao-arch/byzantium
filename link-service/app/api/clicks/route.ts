@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRecentClicks } from "@/lib/clicks";
-import { getSession, checkAdminPassword } from "@/lib/auth";
+import { isAdminRequest } from "@/lib/auth";
 
 // ADMIN-ONLY raw click feed.
 //   GET /api/clicks                  -> all recent clicks (newest first)
@@ -15,14 +15,8 @@ import { getSession, checkAdminPassword } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-function isAdmin(req: NextRequest): boolean {
-  if (getSession()?.kind === "admin") return true;
-  const key = req.headers.get("x-admin-key");
-  return !!key && checkAdminPassword(key);
-}
-
 export async function GET(req: NextRequest) {
-  if (!isAdmin(req)) {
+  if (!isAdminRequest(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const campaign = req.nextUrl.searchParams.get("campaign") || undefined;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { settledClicks } from "@/lib/publicfeed";
 import { toPublicClick } from "@/lib/publicdata";
+import { isAdminRequest } from "@/lib/auth";
 import { PUBLIC_REVEAL_DELAY_HOURS } from "@/lib/config";
 
 // GET /api/validator/clicks?since=<id>&limit=<n>
@@ -14,13 +15,22 @@ import { PUBLIC_REVEAL_DELAY_HOURS } from "@/lib/config";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  // Admins may preview at a shorter delay (?delay=0 = live); public callers always
+  // get the full reveal delay, whatever the param says.
+  const dParam = req.nextUrl.searchParams.get("delay");
+  const delay =
+    isAdminRequest(req) && dParam !== null && Number.isFinite(Number(dParam))
+      ? Math.max(0, Number(dParam))
+      : PUBLIC_REVEAL_DELAY_HOURS;
+
   const since = Number(req.nextUrl.searchParams.get("since") ?? 0) || 0;
   const limit = Number(req.nextUrl.searchParams.get("limit") ?? 500) || 500;
-  const rows = await settledClicks(since, limit);
+  const rows = await settledClicks(since, limit, delay);
   const clicks = rows.map(toPublicClick);
   const next_since = clicks.length ? clicks[clicks.length - 1].id : since;
   return NextResponse.json({
-    reveal_delay_hours: PUBLIC_REVEAL_DELAY_HOURS,
+    reveal_delay_hours: delay,
+    realtime: delay !== PUBLIC_REVEAL_DELAY_HOURS,
     count: clicks.length,
     next_since,
     clicks,
