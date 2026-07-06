@@ -1,19 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRecentClicks } from "@/lib/clicks";
+import { getSession, checkAdminPassword } from "@/lib/auth";
 
-// Read feed of recent clicks.
+// ADMIN-ONLY raw click feed.
 //   GET /api/clicks                  -> all recent clicks (newest first)
 //   GET /api/clicks?campaign=launch  -> just one campaign's
 //   GET /api/clicks?miner=alice      -> just one miner's
 //
-// Stub note: this reads the in-memory buffer, so it only shows clicks served by
-// the same running instance (great locally; partial in serverless). The durable
-// record while stubbed is the Vercel log stream. This same endpoint becomes the
-// public read feed once it reads from Postgres.
+// This returns RAW rows — ip, ua, fingerprint, visitor_id, signals — i.e. PII
+// and the unfiltered signal stream. It is NOT public. The privacy-safe public
+// feed is /api/validator/clicks (IP/UA dropped, salted tokens). Access requires
+// either a logged-in admin session (browser) or an `x-admin-key` header matching
+// ADMIN_PASSWORD (server-to-server tooling, e.g. the api-monitor).
 
 export const dynamic = "force-dynamic";
 
+function isAdmin(req: NextRequest): boolean {
+  if (getSession()?.kind === "admin") return true;
+  const key = req.headers.get("x-admin-key");
+  return !!key && checkAdminPassword(key);
+}
+
 export async function GET(req: NextRequest) {
+  if (!isAdmin(req)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const campaign = req.nextUrl.searchParams.get("campaign") || undefined;
   const miner = req.nextUrl.searchParams.get("miner") || undefined;
   const clicks = await getRecentClicks({ campaign, miner });
