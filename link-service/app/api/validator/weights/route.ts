@@ -21,32 +21,27 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const rows = await settledMinerScores();
   const hotkeys = await hotkeysByHandle();
-  const scored = computeWeights(rows).map((w) => ({
-    ...w,
-    hotkey: hotkeys[w.miner] ?? null,
-  }));
 
-  // Split payable (has a hotkey) from unpayable, and burn the unpayable share.
-  const payable = scored.filter((w) => w.hotkey);
-  const unpayable = scored.filter((w) => !w.hotkey);
-  const weights: any[] = [...payable];
-  if (unpayable.length) {
-    weights.push({
-      miner: "(burn)",
-      hotkey: BURN_HOTKEY || null,
-      burn: true,
-      score_sum: unpayable.reduce((a, w) => a + w.score_sum, 0),
-      scored_clicks: unpayable.reduce((a, w) => a + w.scored_clicks, 0),
-      weight: unpayable.reduce((a, w) => a + w.weight, 0),
-    });
-  }
-  weights.sort((a, b) => b.weight - a.weight);
+  // Every miner keeps its name and its own share. A miner with a payout hotkey is
+  // paid directly. A miner with none is marked `burn: true` and its weight routes
+  // to the burn hotkey (not redistributed to the others) — so the row shows the
+  // miner by name alongside exactly what it will earn the moment it registers a
+  // hotkey. A weight-copy validator sums all burn rows onto the single BURN_HOTKEY.
+  const weights = computeWeights(rows)
+    .map((w) => {
+      const hotkey = hotkeys[w.miner] ?? null;
+      return hotkey
+        ? { ...w, hotkey, burn: false }
+        : { ...w, hotkey: BURN_HOTKEY || null, burn: true };
+    })
+    .sort((a, b) => b.weight - a.weight);
 
   return NextResponse.json({
     generated_at: new Date().toISOString(),
     reveal_delay_hours: PUBLIC_REVEAL_DELAY_HOURS,
     formula: "weight = miner_score_sum / Σ score_sum over settled clicks",
-    burn_note: "miners with no payout hotkey are folded into the (burn) row, not redistributed",
+    burn_note:
+      "rows with burn:true have no payout hotkey — their weight is not redistributed; it routes to the burn hotkey (BURN_HOTKEY). A weight-copy validator should sum all burn:true rows onto that single hotkey.",
     count: weights.length,
     weights,
   });
