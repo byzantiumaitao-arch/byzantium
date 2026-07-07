@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getMinerById, getSocials, type Social } from "@/lib/miners";
 import { getMinerSummary } from "@/lib/stats";
 import { listCampaigns } from "@/lib/campaigns";
-import { SOCIAL_LINKING_ENABLED } from "@/lib/config";
+import { SOCIAL_LINKING_ENABLED, BURN_HOTKEY } from "@/lib/config";
 import { Nav } from "../nav";
 import { LinkBuilder } from "./LinkBuilder";
 import { updateHotkey } from "./actions";
@@ -103,12 +103,29 @@ export default async function MinerPage({
             Rewards are paid to <span className="mono">{miner.hotkey}</span>.
           </p>
         ) : (
-          <p style={{ marginTop: 0, color: "var(--gold)" }}>
-            You haven’t set a payout address yet. You’ll still earn weight from your
-            clicks — but until you add a hotkey, those rewards are sent to a soft-burn
-            wallet (a Byzantium key that’s never sold), not paid to you or shared out to
-            other miners. Add your Bittensor hotkey to start receiving them.
-          </p>
+          <>
+            <p style={{ marginTop: 0, color: "var(--gold)" }}>
+              You haven’t set a payout address yet. You’ll still earn weight from your
+              clicks — but until you add a hotkey, those rewards are sent to a soft-burn
+              wallet (a Byzantium key that’s never sold), not paid to you or shared out to
+              other miners. Add your Bittensor hotkey to start receiving them.
+            </p>
+            {BURN_HOTKEY && (
+              <p className="sub" style={{ marginTop: 0, fontSize: 12.5, lineHeight: 1.65 }}>
+                Soft-burn wallet:{" "}
+                <a
+                  className="mono"
+                  href={`https://taostats.io/hotkey/${BURN_HOTKEY}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {BURN_HOTKEY}
+                </a>
+                {" "}— a Byzantium hotkey registered on SN76 that we never spend from, so
+                you can check on-chain that unclaimed rewards just accumulate untouched.
+              </p>
+            )}
+          </>
         )}
         <form action={updateHotkey} style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <input
