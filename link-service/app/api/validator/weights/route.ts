@@ -7,15 +7,16 @@ import { PUBLIC_REVEAL_DELAY_HOURS, BURN_HOTKEY } from "@/lib/config";
 
 // GET /api/validator/weights
 //
-// Per-miner reward weights — the only thing copyweight validators need. Computed
-// by the PUBLIC formula (lib/weights.ts) from settled per-click authenticity
-// scores, normalised to sum 1.0. Fully reproducible from GET /api/validator/clicks.
+// Per-miner reward weights — the only thing copyweight validators need, and in v1
+// the ONLY public validator endpoint. Computed by the PUBLIC formula
+// (lib/weights.ts) from settled per-click authenticity scores, normalised to sum
+// 1.0. The per-click audit feed (/api/validator/clicks) opens in v2.
 //
 // Each row carries the miner's `hotkey` (Bittensor SS58 payout address) so a
-// weight_copy validator can `set_weights` against the right key. Weight earned by
-// miners with no payout hotkey is NOT redistributed — it is folded into a single
-// `"(burn)"` row (marked `burn: true`, hotkey = BURN_HOTKEY) and burned, so every
-// miner with a hotkey keeps exactly their own share.
+// weight_copy validator can `set_weights` against the right key. A miner with no
+// payout hotkey keeps its own named row but is marked `burn: true` with
+// hotkey = BURN_HOTKEY; its weight is NOT redistributed. A weight_copy validator
+// sums all `burn: true` rows onto that single burn hotkey.
 
 export const dynamic = "force-dynamic";
 

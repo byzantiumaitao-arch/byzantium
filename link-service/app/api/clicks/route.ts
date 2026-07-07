@@ -9,7 +9,7 @@ import { isAdminRequest } from "@/lib/auth";
 //
 // This returns RAW rows — ip, ua, fingerprint, visitor_id, signals — i.e. PII
 // and the unfiltered signal stream. It is NOT public. The privacy-safe public
-// feed is /api/validator/clicks (IP/UA dropped, salted tokens). Access requires
+// feed (/api/validator/clicks, IP/UA dropped, salted tokens) opens in v2. Access requires
 // either a logged-in admin session (browser) or an `x-admin-key` header matching
 // ADMIN_PASSWORD (server-to-server tooling, e.g. the api-monitor).
 

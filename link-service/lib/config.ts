@@ -21,7 +21,7 @@ export const PUBLIC_REVEAL_DELAY_HOURS = Number(
 // Weights are a rolling window of recent settled clicks, so a miner who goes
 // quiet for a few days still earns (their older clicks age out gradually) and a
 // fully inactive miner decays to 0. Tunable per environment.
-export const WEIGHTS_WINDOW_DAYS = Number(process.env.WEIGHTS_WINDOW_DAYS ?? 14);
+export const WEIGHTS_WINDOW_DAYS = Number(process.env.WEIGHTS_WINDOW_DAYS ?? 30);
 
 // Server-only salt for the one-way hashes in the public feed (device/network
 // tokens). Keep it secret and stable: rotating it re-anonymises everything, and
