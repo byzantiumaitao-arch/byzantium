@@ -4,5 +4,10 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+# Private authenticity + signal-collection layer — never publish (see README
+# "Private by design"). Kept on disk locally and uploaded by Vercel at deploy
+# time, so the live service still has them; they're just not in the public repo.
 lib/signals.ts
 lib/scorer.ts
+lib/fingerprint.ts
+app/api/collect/route.ts
