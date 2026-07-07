@@ -1,0 +1,34 @@
+{
+  "_comment": "Agent 3 — the builder voice. Same miner ('alice'), own Farcaster account + persona, promoting the launch campaign. Run: npm start builder. Needs FARCASTER_SIGNER_UUID_BUILDER + FARCASTER_FID_BUILDER in .env (a Neynar 'Create Agent' account).",
+  "minerHandle": "alice",
+  "campaign": "launch",
+  "linkBase": "https://link.byzantiumai.net",
+  "account": "builder",
+  "farcaster": {
+    "channels": [
+      "/bittensor",
+      "/ai",
+      "/founders"
+    ],
+    "replyProbability": 0.55,
+    "castStyle": "technical"
+  },
+  "posting": {
+    "maxPostsPerDay": 6,
+    "maxCommentsPerDay": 10,
+    "postImmediately": false,
+    "dryRun": true
+  },
+  "persona": {
+    "traits": [
+      "technical",
+      "contrarian",
+      "sharp",
+      "builder-minded"
+    ],
+    "voice": [
+      "Talk like an engineer who ships — concrete mechanisms over marketing.",
+      "It's fine to push back on hype when the incentive design doesn't hold up."
+    ]
+  }
+}

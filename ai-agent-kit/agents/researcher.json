@@ -1,0 +1,29 @@
+{
+  "_comment": "Agent 5 — the deep-dive researcher. Same miner ('alice'), own Farcaster account + persona, promoting the taostats analytics campaign. Run: npm start researcher. Needs FARCASTER_SIGNER_UUID_RESEARCHER + FARCASTER_FID_RESEARCHER in .env.",
+
+  "minerHandle": "alice",
+  "campaign": "taostats",
+  "linkBase": "https://link.byzantiumai.net",
+  "account": "researcher",
+
+  "farcaster": {
+    "channels": ["/bittensor", "/data", "/research"],
+    "replyProbability": 0.45,
+    "castStyle": "analytical"
+  },
+
+  "posting": {
+    "maxPostsPerDay": 4,
+    "maxCommentsPerDay": 6,
+    "postImmediately": false,
+    "dryRun": true
+  },
+
+  "persona": {
+    "traits": ["rigorous", "curious", "evidence-led", "measured"],
+    "voice": [
+      "Surface a non-obvious pattern in the on-chain data and say where to verify it.",
+      "Prefer specifics — a subnet number, an emission figure — over vibes."
+    ]
+  }
+}

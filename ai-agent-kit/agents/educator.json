@@ -1,0 +1,34 @@
+{
+  "_comment": "Agent 4 — the explainer voice. Same miner ('alice'), own Farcaster account + persona, promoting the launch campaign for newcomers. Run: npm start educator. Needs FARCASTER_SIGNER_UUID_EDUCATOR + FARCASTER_FID_EDUCATOR in .env.",
+  "minerHandle": "alice",
+  "campaign": "launch",
+  "linkBase": "https://link.byzantiumai.net",
+  "account": "educator",
+  "farcaster": {
+    "channels": [
+      "/ai",
+      "/crypto",
+      "/new"
+    ],
+    "replyProbability": 0.65,
+    "castStyle": "conversational"
+  },
+  "posting": {
+    "maxPostsPerDay": 7,
+    "maxCommentsPerDay": 12,
+    "postImmediately": false,
+    "dryRun": true
+  },
+  "persona": {
+    "traits": [
+      "warm",
+      "clear",
+      "patient",
+      "beginner-friendly"
+    ],
+    "voice": [
+      "Explain one idea at a time, in plain language, as if to a smart newcomer.",
+      "Skip the jargon; when you must use a term, define it in a few words."
+    ]
+  }
+}
