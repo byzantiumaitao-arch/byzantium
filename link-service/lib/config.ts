@@ -28,6 +28,15 @@ export const WEIGHTS_WINDOW_DAYS = Number(process.env.WEIGHTS_WINDOW_DAYS ?? 14)
 // leaking it lets people reverse published tokens back to raw fingerprints/IPs.
 export const PUBLIC_DATA_SALT = process.env.PUBLIC_DATA_SALT || "";
 
+// Social handle linking / proof-of-post verification (X, Farcaster). Off by
+// default: with one-miner-per-link attribution by hotkey, a miner verifying
+// their *own* social account adds nothing to payout, so the flow is hidden from
+// the miner dashboard, the /m/verify page, and the miner guide. The backend
+// (lib/socials.ts, the miner_socials table, and admin review) stays wired — set
+// SOCIAL_LINKING_ENABLED=true to re-expose the UI without any code changes.
+export const SOCIAL_LINKING_ENABLED =
+  (process.env.SOCIAL_LINKING_ENABLED ?? "false") === "true";
+
 // Burn address (Bittensor SS58 hotkey). Weight earned by miners who haven't set a
 // payout hotkey is routed here instead of being redistributed — so unclaimed
 // rewards are set aside, and every registered miner keeps exactly their own share.

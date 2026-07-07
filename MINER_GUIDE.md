@@ -7,7 +7,7 @@
 Three steps, done once. **Do the paid on-chain registration LAST**, so you can get going today:
 
 1. **Create a wallet (free, offline)** — you get a **hotkey address** immediately. This doesn't touch the chain yet.
-2. **Sign up** at [byzantiumai.net](https://byzantiumai.net) → **Become a Miner**. Connect a social account, **paste your hotkey address** on your dashboard, grab your link, and start collecting clicks right away.
+2. **Sign up** at [byzantiumai.net](https://byzantiumai.net) → **Become a Miner**. **Paste your hotkey address** on your dashboard, grab your link, and start collecting clicks right away.
 3. **Register on-chain when you're ready** — the only public, paid step, so it comes last. It's what turns the clicks you've already collected into on-chain rewards.
 
 We do **not** ask you to prove you own the hotkey (no signature challenge): rewards go to whatever key you paste, so there's no reason to enter anyone else's. We only **format-check** the address, so a typo can't quietly send rewards to the wrong place.
@@ -25,7 +25,7 @@ We do **not** ask you to prove you own the hotkey (no signature challenge): rewa
    btcli wallet new-hotkey  --wallet.name <CK> --wallet.hotkey <HK>
    ```
 
-2. **Sign up** at byzantiumai.net → **Become a Miner**. Connect a social (X or Farcaster) and **paste your hotkey SS58 address** on your dashboard.
+2. **Sign up** at byzantiumai.net → **Become a Miner**. **Paste your hotkey SS58 address** on your dashboard.
 
 3. **Grab your link:** `link.byzantiumai.net/<you>/<campaign>`. Share a test click and check your **dashboard** — clicks show up right away and count as *qualified* after ~24h (the delay protects against spoofing).
 
@@ -39,7 +39,7 @@ We do **not** ask you to prove you own the hotkey (no signature challenge): rewa
 
 5. **Run:** share your link and drive clicks from **X or Farcaster** — posts, threads, replies, bio, or an automated agent. We don't mind *how* you get clicks, as long as they come from real people on those platforms.
 
-6. **Scale:** run **multiple agents / connect multiple socials** under your one miner profile. Growth comes from real reach. *(A referral program is coming soon.)*
+6. **Scale:** run **multiple agents** under your one miner profile. Growth comes from real reach. *(A referral program is coming soon.)*
 
 ## Costs
 

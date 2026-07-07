@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { getSocials } from "@/lib/miners";
 import { postText, type Platform } from "@/lib/socials";
+import { SOCIAL_LINKING_ENABLED } from "@/lib/config";
 import { Nav } from "../../nav";
 import { beginVerify, submitVerify } from "./actions";
 
@@ -18,6 +19,9 @@ export default async function VerifyPage({
 }) {
   const session = getSession();
   if (session?.kind !== "miner") redirect("/login");
+  // Social linking is hidden for now (see SOCIAL_LINKING_ENABLED); the flow stays
+  // wired but unreachable until re-enabled.
+  if (!SOCIAL_LINKING_ENABLED) redirect("/m");
 
   const platform: Platform = searchParams.platform === "farcaster" ? "farcaster" : "x";
   const socials = await getSocials(session.minerId);

@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getMinerById, getSocials, type Social } from "@/lib/miners";
 import { getMinerSummary } from "@/lib/stats";
 import { listCampaigns } from "@/lib/campaigns";
+import { SOCIAL_LINKING_ENABLED } from "@/lib/config";
 import { Nav } from "../nav";
 import { LinkBuilder } from "./LinkBuilder";
 import { updateHotkey } from "./actions";
@@ -56,7 +57,9 @@ export default async function MinerPage({
           {" "}· @{miner.handle}
         </span>
       </h1>
-      <p className="sub">Your clicks, links and verified socials.</p>
+      <p className="sub">
+        Your clicks{SOCIAL_LINKING_ENABLED ? ", links and verified socials." : " and links."}
+      </p>
 
       <div className="card" style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.65 }}>
         <strong>How your clicks count.</strong>{" "}
@@ -81,10 +84,12 @@ export default async function MinerPage({
           <div className="num">{m.inReview.toLocaleString()}</div>
           <div className="lbl">In review (last {m.reviewHours}h)</div>
         </div>
-        <div className="card stat">
-          <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
-          <div className="lbl">Verified socials</div>
-        </div>
+        {SOCIAL_LINKING_ENABLED && (
+          <div className="card stat">
+            <div className="num">{socials.filter((s) => s.status === "verified").length}</div>
+            <div className="lbl">Verified socials</div>
+          </div>
+        )}
       </div>
 
       <h2>Payout address</h2>
@@ -131,36 +136,40 @@ export default async function MinerPage({
         </p>
       </div>
 
-      <h2>Linked socials</h2>
-      <div className="card" style={{ padding: 0 }}>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Platform</th>
-              <th>Handle</th>
-              <th>Status</th>
-              <th className="right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PLATFORMS.map((p) => {
-              const s = byPlatform.get(p.key);
-              return (
-                <tr key={p.key}>
-                  <td>{p.label}</td>
-                  <td className="mono">{s ? `@${s.handle}` : "—"}</td>
-                  <td>{socialPill(s)}</td>
-                  <td className="right">
-                    <a className="btn sm ghost" href={`/m/verify?platform=${p.key}`}>
-                      {s?.status === "verified" ? "Re-link" : s ? "Continue" : "Connect"}
-                    </a>
-                  </td>
+      {SOCIAL_LINKING_ENABLED && (
+        <>
+          <h2>Linked socials</h2>
+          <div className="card" style={{ padding: 0 }}>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Handle</th>
+                  <th>Status</th>
+                  <th className="right">Action</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {PLATFORMS.map((p) => {
+                  const s = byPlatform.get(p.key);
+                  return (
+                    <tr key={p.key}>
+                      <td>{p.label}</td>
+                      <td className="mono">{s ? `@${s.handle}` : "—"}</td>
+                      <td>{socialPill(s)}</td>
+                      <td className="right">
+                        <a className="btn sm ghost" href={`/m/verify?platform=${p.key}`}>
+                          {s?.status === "verified" ? "Re-link" : s ? "Continue" : "Connect"}
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <h2>Build a link</h2>
       <LinkBuilder miner={miner.handle} campaigns={campaigns} />
