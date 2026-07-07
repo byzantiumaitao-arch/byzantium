@@ -1,80 +1,123 @@
 # Byzantium link service
 
-The redirect + click-logging service behind **`link.byzantiumai.net`**.
+The redirect, attribution, and validator-transparency layer behind
+**`link.byzantiumai.net`** — the public half of Byzantium (Bittensor **subnet 76**),
+a decentralized marketing subnet. Miners share tracking links; genuine human
+clicks earn weight; validators read those weights from this service and set them
+on-chain.
+
+## The link
 
 ```
 link.byzantiumai.net/<miner>/<campaign>
   → look up the campaign's destination
-  → log the click (append-only), attributed to (miner, campaign)
-  → 302 → the campaign's target site
+  → log the click, attributed to (miner, campaign)
+  → forward the visitor to the destination
 
-e.g.  link.byzantiumai.net/alice/launch  → https://byzantiumai.net
-      link.byzantiumai.net/alice/buy     → https://taostats.io
+e.g.  link.byzantiumai.net/alice/launch  →  https://byzantiumai.net
 ```
 
-Each **campaign** has its own destination URL; each click records which campaign
-(what's being marketed) and which miner (who to reward). The device-fingerprint
-interstitial and the real Postgres click table slot in later without changing
-this behaviour.
+Each **campaign** has its own destination URL. Each click records **which
+campaign** (what's being marketed) and **which miner** (who to credit).
+
+## How a click becomes on-chain weight
+
+1. **Redirect** — logs the click and forwards the visitor to the campaign's destination.
+2. **Authenticity** — every click is judged genuine-or-not by a **separate, private**
+   component (see *Private by design*). Only genuine clicks count toward rewards.
+3. **Weights** — `GET /api/validator/weights` publishes each miner's share of its
+   genuine clicks, normalised to 1.0, with the miner's payout hotkey. Validators
+   copy these on-chain.
+
+### Private by design
+
+Two things are deliberately **not** documented here or exposed in the v1 API,
+because revealing them would let people game the rewards:
+
+- **Authenticity scoring** — *how* a click is judged genuine. A separate, private
+  component; never published.
+- **The in-browser signal collection** that feeds it, and the per-click data it
+  produces.
+
+The public surface in v1 is the **redirect**, the **campaign registry**, the
+**dashboards**, and the **aggregate weights**. Per-click transparency — an
+anonymized, auditable click feed — is planned for **v2**.
 
 ## What's here
 
 | Path | What it does |
 |---|---|
-| `app/[miner]/[campaign]/route.ts` | The redirect. Logs the click, 302s to the campaign's destination. |
-| `app/[miner]/route.ts` | Single-segment (no campaign) → marketing site; not a valid tracking link. |
-| `app/api/clicks/route.ts` | Read feed of recent clicks (`?campaign=` / `?miner=` to filter). |
-| `lib/campaigns.ts` | **Campaign registry — campaign → destination.** Currently a stub map; becomes a DB lookup later. |
-| `lib/clicks.ts` | **Storage layer — the only file that changes for a real DB.** Currently stubbed (logs + in-memory). |
-| `lib/config.ts` | Service-wide settings (marketing URL). |
+| `app/[miner]/[campaign]/route.ts` | The redirect. Logs the click, forwards to the campaign destination. |
+| `app/[miner]/route.ts` | Single-segment path (no campaign) → marketing site; not a tracking link. |
+| `app/api/validator/weights/route.ts` | **Public validator feed** — per-miner reward weights (all a weight-copy validator needs). |
+| `app/api/clicks/route.ts` | Raw click feed — **admin-only** (auth required). |
+| `app/dashboard` · `app/m` · `app/admin` | Public campaign overview · miner dashboard · admin console. |
+| `app/signup` · `app/login` | Miner accounts. |
+| `lib/campaigns.ts` | Campaign registry (Postgres): slug → destination; managed at `/admin`. |
+| `lib/db.ts` · `lib/clicks.ts` | Click storage — real **Neon Postgres**, append-only. |
+| `lib/miners.ts` · `lib/auth.ts` | Miner accounts + session auth (miner / admin). |
+| `lib/weights.ts` · `lib/publicfeed.ts` | The public weight formula + its settled-click read queries. |
+| `lib/wallet.ts` | Bittensor **SS58** hotkey validation. |
+| `lib/ratelimit.ts` · `lib/config.ts` | Per-IP flood backstop · service settings. |
 
-## Campaigns
+## Validator API
 
-Add or edit campaigns in `lib/campaigns.ts` — each has a `slug`, `name`,
-`destination`, and `active` flag. Later this moves to the database / an admin UI
-so brands can launch campaigns without a code change.
+`GET /api/validator/weights` → per-miner weights, normalised to sum 1.0:
 
-## Storage: stubbed for now
+```jsonc
+{
+  "generated_at": "2026-…",
+  "reveal_delay_hours": 24,       // a click's score is public only after it settles
+  "count": 3,
+  "weights": [
+    { "miner": "alice", "weight": 0.42, "score_sum": 21, "scored_clicks": 21,
+      "hotkey": "5F…", "burn": false }
+    // a miner with no payout hotkey → "burn": true, weight routed to the burn hotkey
+  ]
+}
+```
 
-While stubbed, every click is:
-1. Written to the **Vercel log stream** as a JSON line (the durable record) — view with `vercel logs <deployment>`.
-2. Kept in an **in-memory** buffer that powers `GET /api/clicks` (resets on cold start; great locally).
+A weight-copy validator polls this each epoch and `set_weights` against each
+row's `hotkey`, summing `burn:true` rows onto the single burn hotkey. A weight is
+the miner's share of its genuine-click scores over a rolling `WEIGHTS_WINDOW_DAYS`
+window, published only after `PUBLIC_REVEAL_DELAY_HOURS` (so scores can't be read
+in real time to tune fraud).
 
-Moving to real Postgres = swap the two function bodies in `lib/clicks.ts` for an
-`INSERT` and a `SELECT`. The append-only contract and the row shape stay
-identical, so nothing else changes.
+## Storage
 
-## Run locally
+Real **Neon Postgres** via the serverless HTTP driver (`lib/db.ts`). Schema +
+migrations in `scripts/migrate.mjs`:
 
 ```bash
-cd link-service
+node --env-file=.env.local scripts/migrate.mjs
+```
+
+Click rows are **append-only** — never mutated or deleted destructively.
+
+## Configuration (Vercel env vars)
+
+| Var | Meaning |
+|---|---|
+| `DATABASE_URL` | Neon Postgres connection string — **required**. |
+| `AUTH_SECRET` | Signs session cookies. |
+| `ADMIN_PASSWORD` | Unlocks the admin console + the admin-only click feed. |
+| `MARKETING_URL` | Where bare-root / unknown-campaign hits go (default `https://byzantiumai.net`). |
+| `PUBLIC_REVEAL_DELAY_HOURS` | Settle delay before a click's score is published (default `24`). |
+| `WEIGHTS_WINDOW_DAYS` | Rolling window weights are computed over (default `30`). |
+| `PUBLIC_DATA_SALT` | Salt for anonymized public tokens — set a strong, stable value. |
+| `BURN_HOTKEY` | Soft-burn hotkey; unpayable (no-hotkey) weight routes here. |
+| `RATE_LIMIT_MAX` · `RATE_LIMIT_WINDOW_MS` | Per-IP flood backstop on the hot paths (default `120` / `60000`). |
+
+## Development & deploy
+
+Requires a `.env.local` with `DATABASE_URL` (and the private authenticity
+components, which are not part of this repo — so it isn't a standalone build):
+
+```bash
 npm install
 npm run dev          # http://localhost:3000
 ```
 
-Test it:
-```bash
-curl -sI localhost:3000/alice/launch          # → 302 Location: https://byzantiumai.net
-curl -sI localhost:3000/alice/buy             # → 302 Location: https://taostats.io
-curl -s  localhost:3000/api/clicks | jq       # → the clicks you just made
-```
-
-## Configuration (Vercel env vars, all optional)
-
-| Var | Default | Meaning |
-|---|---|---|
-| `MARKETING_URL` | `https://byzantiumai.net` | Where bare-root / unknown-campaign hits go. |
-
-## Deploy
-
-This is its **own** Vercel project, separate from the marketing site
-(`project-whipi`) for uptime isolation. From this folder:
-
-```bash
-npx vercel        # first run: create a NEW project (e.g. byzantium-link)
-npx vercel --prod
-```
-
-Then in the Vercel dashboard for that project: **Settings → Domains → add
-`link.byzantiumai.net`**, and create the CNAME it gives you in Cloudflare
-(**DNS only**, grey cloud).
+Runs in production as its **own** Vercel project (separate from the marketing
+site for uptime isolation), behind `link.byzantiumai.net` (Cloudflare CNAME,
+DNS-only), deployed from the maintainers' environment.
