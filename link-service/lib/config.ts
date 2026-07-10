@@ -42,12 +42,4 @@ export const SOCIAL_LINKING_ENABLED =
 // rewards are set aside, and every registered miner keeps exactly their own share.
 // This is a Byzantium-controlled hotkey REGISTERED on SN76 that we simply never
 // spend from (a soft burn), so its emissions accumulate untouched.
-//
-// TEMPORARY — pointed at the key below while the permanent burn hotkey
-// (5FNvEXaiumHtm3iqKDBvjCgGhAuPzwsdNpM3Rs2mwwAuYVZF) is not yet registered on
-// SN76. This is a stopgap and WILL BE CHANGED BACK once that key is registered.
-// Caveat: 5Crak… is registered on SN92 (wgmi), not SN76, so a weight_copy
-// validator cannot resolve it to a UID until it is also registered on SN76.
-const TEMP_BURN_HOTKEY = "5CrakAiUXovkwYT8E7Gz7ovuHiLrb15XwrLpfTyH65zaR8xg";
-
-export const BURN_HOTKEY = process.env.BURN_HOTKEY || TEMP_BURN_HOTKEY;
+export const BURN_HOTKEY = process.env.BURN_HOTKEY || "";
